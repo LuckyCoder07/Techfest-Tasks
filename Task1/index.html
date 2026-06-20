@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NEXUS-7 // CYBERNETIC AUGMENTATION DIVISION</title>
+<meta name="description" content="NEXUS-7 Cybernetic Augmentation Division — next-generation human enhancement systems powered by bio-synthetic intelligence."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+/* ============================================================
+   NEXUS-7 // PURPLE CYBORG THEME — DESIGN SYSTEM
+   ============================================================ */
+:root {
+  --void:          #04010a;
+  --deep:          #0a0415;
+  --dark:          #0f0620;
+  --panel:         rgba(18, 6, 38, 0.82);
+  --panel-solid:   #100525;
+
+  --p1: #8b00ff;   /* electric violet */
+  --p2: #bf5fff;   /* bright orchid   */
+  --p3: #da8fff;   /* soft lavender   */
+  --p4: #f0d0ff;   /* near-white      */
+  --p5: #6200b3;   /* deep royal      */
+
+  --mag: #ff00cc;  /* magenta accent  */
+  --teal:#00ffe0;  /* contrast pop    */
+
+  --glow-sm:  0 0 8px rgba(139,0,255,.55);
+  --glow-md:  0 0 18px rgba(139,0,255,.45), 0 0 40px rgba(139,0,255,.2);
+  --glow-lg:  0 0 30px rgba(139,0,255,.6),  0 0 80px rgba(139,0,255,.25);
+  --glow-mag: 0 0 12px rgba(255,0,204,.5),  0 0 30px rgba(255,0,204,.2);
+
+  --border:   1px solid rgba(139,0,255,.35);
+  --border-b: 1px solid rgba(191,95,255,.6);
+
+  --font-hud: 'Orbitron', sans-serif;
+  --font-ui:  'Rajdhani', sans-serif;
+  --font-mono:'Share Tech Mono', monospace;
+
+  --r: 2px;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+
+html { scroll-behavior:smooth; }
+
+body {
+  background: var(--void);
+  color: var(--p3);
+  font-family: var(--font-ui);
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* ── CUSTOM CURSOR ───────────────────────────────────────── */
+#cursor-ring {
+  position:fixed; width:36px; height:36px; border-radius:50%;
+  border:1.5px solid var(--p2); pointer-events:none; z-index:9999;
+  transform:translate(-50%,-50%);
+  transition: width .15s, height .15s, opacity .15s;
+  mix-blend-mode:screen;
+}
+#cursor-dot {
+  position:fixed; width:6px; height:6px; border-radius:50%;
+  background:var(--p2); pointer-events:none; z-index:9999;
+  transform:translate(-50%,-50%);
+  box-shadow: var(--glow-sm);
+}
+body:hover #cursor-ring { opacity:1; }
+
+/* ── CANVAS BG ───────────────────────────────────────────── */
+#bg-canvas {
+  position:fixed; inset:0; width:100%; height:100%;
+  z-index:0; pointer-events:none;
+}
+
+/* ── CRT / NOISE OVERLAYS ────────────────────────────────── */
+.crt-lines {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,.12) 0px, rgba(0,0,0,.12) 1px,
+    transparent 1px, transparent 3px
+  );
+}
+.vignette {
+  position:fixed; inset:0; z-index:2; pointer-events:none;
+  background: radial-gradient(ellipse at center,
+    transparent 40%, rgba(4,1,10,.85) 100%);
+}
+.scan-sweep {
+  position:fixed; left:0; right:0; height:3px; z-index:3;
+  pointer-events:none;
+  background: linear-gradient(90deg,
+    transparent, rgba(139,0,255,.35), transparent);
+  animation: sweep 7s linear infinite;
+}
+@keyframes sweep {
+  0%   { top:-3px; }
+  100% { top:100vh; }
+}
+
+/* ── SCROLLABLE WRAPPER ──────────────────────────────────── */
+#page { position:relative; z-index:4; }
+
+/* ── UTILITY ─────────────────────────────────────────────── */
+.neon { color:var(--p2); text-shadow:var(--glow-sm); }
+.mag  { color:var(--mag); text-shadow:var(--glow-mag); }
+.mono { font-family:var(--font-mono); }
+.hud-font { font-family:var(--font-hud); }
+
+.chamfer {
+  clip-path: polygon(
+    0 0, calc(100% - 14px) 0,
+    100% 14px, 100% 100%,
+    14px 100%, 0 calc(100% - 14px)
+  );
+}
+.chamfer-sm {
+  clip-path: polygon(
+    0 0, calc(100% - 8px) 0,
+    100% 8px, 100% 100%,
+    8px 100%, 0 calc(100% - 8px)
+  );
+}
+
+/* ── NAV ─────────────────────────────────────────────────── */
+nav {
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 40px; height:64px;
+  background: rgba(4,1,10,.75);
+  backdrop-filter: blur(14px) saturate(180%);
+  border-bottom: var(--border-b);
+}
+.nav-brand {
+  font-family:var(--font-hud); font-size:1.1rem; font-weight:900;
+  letter-spacing:3px; color:#fff;
+  text-shadow: var(--glow-md);
+  display:flex; align-items:center; gap:10px;
+}
+.nav-brand .bracket { color:var(--p2); }
+.nav-logo-icon {
+  width:28px; height:28px; stroke:var(--p2);
+  filter:drop-shadow(0 0 5px var(--p2));
+  animation: spin 12s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.nav-links {
+  display:flex; gap:30px; list-style:none;
+}
+.nav-links a {
+  font-family:var(--font-hud); font-size:.65rem; letter-spacing:2px;
+  color:rgba(218,143,255,.65); text-decoration:none;
+  transition:color .2s, text-shadow .2s;
+}
+.nav-links a:hover { color:var(--p2); text-shadow:var(--glow-sm); }
+
+.nav-status {
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--font-mono); font-size:.7rem; color:var(--p3);
+}
+.status-dot {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--mag); box-shadow:var(--glow-mag);
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.2;} }
+
+/* ── SECTION BASICS ──────────────────────────────────────── */
+section { position:relative; }
+
+/* ── HERO ────────────────────────────────────────────────── */
+#hero {
+  min-height:100vh; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center;
+  padding:100px 40px 60px;
+  overflow:hidden;
+}
+
+/* decorative corner brackets */
+.corner { position:absolute; width:50px; height:50px; }
+.corner::before, .corner::after { content:''; position:absolute; background:var(--p2); }
+.corner::before { width:2px; height:100%; }
+.corner::after  { width:100%; height:2px; }
+.corner-tl { top:30px; left:30px; }
+.corner-tl::before,.corner-tl::after { top:0; left:0; }
+.corner-tr { top:30px; right:30px; }
+.corner-tr::before { top:0; right:0; }
+.corner-tr::after  { top:0; right:0; }
+.corner-bl { bottom:30px; left:30px; }
+.corner-bl::before { bottom:0; left:0; }
+.corner-bl::after  { bottom:0; left:0; }
+.corner-br { bottom:30px; right:30px; }
+.corner-br::before { bottom:0; right:0; }
+.corner-br::after  { bottom:0; right:0; }
+
+.hero-eyebrow {
+  font-family:var(--font-mono); font-size:.75rem; letter-spacing:4px;
+  color:var(--mag); text-shadow:var(--glow-mag);
+  margin-bottom:24px;
+  display:flex; align-items:center; gap:12px;
+  animation: fadeUp .8s ease both;
+}
+.hero-eyebrow::before,.hero-eyebrow::after {
+  content:''; flex:1; max-width:60px; height:1px;
+  background:linear-gradient(90deg, transparent, var(--mag));
+}
+.hero-eyebrow::after { transform:scaleX(-1); }
+
+.hero-title {
+  font-family:var(--font-hud); font-weight:900;
+  font-size:clamp(2.8rem, 7vw, 6.5rem);
+  line-height:1.0; letter-spacing:4px;
+  color:#fff; position:relative;
+  animation: fadeUp .8s .15s ease both;
+}
+.hero-title .line2 { color:var(--p2); text-shadow:var(--glow-lg); }
+
+/* Glitch Effect */
+.glitch { position:relative; display:inline-block; }
+.glitch::before,.glitch::after {
+  content:attr(data-text); position:absolute;
+  inset:0; overflow:hidden;
+}
+.glitch::before {
+  color:var(--mag); clip-path:polygon(0 30%,100% 30%,100% 50%,0 50%);
+  transform:translateX(-3px);
+  animation:glitch-a 4s infinite linear;
+}
+.glitch::after {
+  color:var(--teal); clip-path:polygon(0 60%,100% 60%,100% 80%,0 80%);
+  transform:translateX(3px);
+  animation:glitch-b 4s infinite linear;
+}
+@keyframes glitch-a {
+  0%,90%,100%{transform:translateX(0) skew(0deg);}
+  91%{transform:translateX(-4px) skew(-1deg);}
+  93%{transform:translateX(4px) skew(1deg);}
+  95%{transform:translateX(-2px);}
+}
+@keyframes glitch-b {
+  0%,88%,100%{transform:translateX(0);}
+  89%{transform:translateX(5px);}
+  92%{transform:translateX(-5px);}
+  94%{transform:translateX(2px);}
+}
+
+.hero-sub {
+  font-family:var(--font-ui); font-size:1.1rem; font-weight:300;
+  letter-spacing:3px; color:rgba(218,143,255,.7);
+  margin-top:20px; max-width:600px;
+  animation: fadeUp .8s .3s ease both;
+}
+
+.hero-metrics {
+  display:flex; gap:50px; margin-top:50px;
+  animation: fadeUp .8s .45s ease both;
+}
+.metric { text-align:center; }
+.metric-val {
+  font-family:var(--font-hud); font-size:2rem; font-weight:700;
+  color:var(--p2); text-shadow:var(--glow-md); display:block;
+}
+.metric-lbl {
+  font-family:var(--font-mono); font-size:.65rem;
+  letter-spacing:2px; color:rgba(218,143,255,.5);
+  display:block; margin-top:4px;
+}
+
+.hero-cta {
+  display:flex; gap:20px; margin-top:50px;
+  animation: fadeUp .8s .6s ease both;
+}
+
+.btn-primary {
+  font-family:var(--font-hud); font-size:.75rem; font-weight:700;
+  letter-spacing:3px; padding:14px 36px;
+  background:linear-gradient(135deg, var(--p5), var(--p1));
+  color:#fff; border:none; cursor:none;
+  position:relative; overflow:hidden;
+  transition:all .3s ease;
+  box-shadow: var(--glow-md);
+}
+.btn-primary::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg, var(--p1), var(--mag));
+  opacity:0; transition:opacity .3s;
+}
+.btn-primary:hover::before { opacity:1; }
+.btn-primary:hover { box-shadow:var(--glow-lg), var(--glow-mag); }
+.btn-primary span { position:relative; z-index:1; }
+
+.btn-ghost {
+  font-family:var(--font-hud); font-size:.75rem; font-weight:600;
+  letter-spacing:3px; padding:13px 36px;
+  background:transparent; color:var(--p2); cursor:none;
+  border: var(--border-b);
+  transition:all .3s ease;
+}
+.btn-ghost:hover {
+  background:rgba(139,0,255,.15);
+  box-shadow:var(--glow-md);
+  color:#fff;
+}
+
+.scroll-hint {
+  position:absolute; bottom:30px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  font-family:var(--font-mono); font-size:.6rem; letter-spacing:2px;
+  color:rgba(218,143,255,.4);
+  animation:float 2.5s ease-in-out infinite;
+}
+.scroll-hint::after {
+  content:''; width:1px; height:35px;
+  background:linear-gradient(180deg, var(--p2), transparent);
+}
+@keyframes float { 0%,100%{transform:translateX(-50%) translateY(0);} 50%{transform:translateX(-50%) translateY(-8px);} }
+
+/* ── HORIZONTAL TICKER ───────────────────────────────────── */
+.ticker-wrap {
+  overflow:hidden; white-space:nowrap;
+  background:rgba(139,0,255,.08);
+  border-top: var(--border);
+  border-bottom: var(--border);
+  padding:10px 0;
+}
+.ticker-track {
+  display:inline-block;
+  animation: ticker 30s linear infinite;
+}
+.ticker-item {
+  display:inline-block; margin:0 40px;
+  font-family:var(--font-mono); font-size:.7rem;
+  letter-spacing:2px; color:rgba(218,143,255,.5);
+}
+.ticker-item span { color:var(--p2); }
+@keyframes ticker { 0%{transform:translateX(0);} 100%{transform:translateX(-50%);} }
+
+/* ── AUGMENTATION GRID ───────────────────────────────────── */
+#augments {
+  padding:100px 60px;
+  background:linear-gradient(180deg, var(--void) 0%, var(--deep) 100%);
+}
+.section-header {
+  text-align:center; margin-bottom:60px;
+}
+.section-eyebrow {
+  font-family:var(--font-mono); font-size:.7rem; letter-spacing:4px;
+  color:var(--mag); margin-bottom:12px; display:block;
+}
+.section-title {
+  font-family:var(--font-hud); font-size:clamp(1.8rem,4vw,3rem);
+  font-weight:700; color:#fff; letter-spacing:2px;
+}
+.section-title span { color:var(--p2); text-shadow:var(--glow-md); }
+
+.aug-grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px; max-width:1200px; margin:0 auto;
+}
+
+.aug-card {
+  background:var(--panel);
+  border: var(--border);
+  padding:28px;
+  position:relative; overflow:hidden;
+  transition:transform .3s ease, box-shadow .3s ease, border-color .3s;
+  cursor:none;
+  backdrop-filter:blur(8px);
+}
+.aug-card::before {
+  content:''; position:absolute; top:0; left:0; right:0;
+  height:2px;
+  background:linear-gradient(90deg, transparent, var(--p1), transparent);
+  transform:scaleX(0); transform-origin:center;
+  transition:transform .4s ease;
+}
+.aug-card:hover { transform:translateY(-6px); border-color:rgba(139,0,255,.6); box-shadow:var(--glow-md); }
+.aug-card:hover::before { transform:scaleX(1); }
+
+.aug-icon {
+  width:44px; height:44px; margin-bottom:18px;
+  stroke:var(--p2); fill:none;
+  filter:drop-shadow(0 0 6px var(--p1));
+}
+.aug-id {
+  font-family:var(--font-mono); font-size:.6rem; letter-spacing:2px;
+  color:rgba(218,143,255,.4); margin-bottom:8px;
+}
+.aug-name {
+  font-family:var(--font-hud); font-size:.95rem; font-weight:700;
+  color:#fff; letter-spacing:2px; margin-bottom:10px;
+}
+.aug-desc {
+  font-size:.88rem; line-height:1.6; color:rgba(218,143,255,.65);
+  margin-bottom:20px;
+}
+.aug-stat {
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:var(--font-mono); font-size:.68rem;
+  padding:6px 0; border-top:1px solid rgba(139,0,255,.15);
+}
+.aug-stat-lbl { color:rgba(218,143,255,.5); }
+.aug-stat-val { color:var(--p2); }
+
+.aug-badge {
+  position:absolute; top:16px; right:16px;
+  font-family:var(--font-mono); font-size:.55rem; letter-spacing:1px;
+  padding:3px 8px;
+  border:1px solid; border-radius:2px;
+}
+.badge-online  { color:var(--teal); border-color:var(--teal); }
+.badge-beta    { color:var(--mag); border-color:var(--mag); }
+.badge-locked  { color:rgba(218,143,255,.4); border-color:rgba(218,143,255,.2); }
+
+/* ── HUD TELEMETRY ───────────────────────────────────────── */
+#telemetry {
+  padding:100px 60px;
+  background:var(--dark);
+}
+
+.tele-layout {
+  display:grid; grid-template-columns:1fr 400px;
+  gap:40px; max-width:1200px; margin:0 auto;
+}
+
+/* Left — live data panel */
+.tele-panel {
+  background:var(--panel);
+  border: var(--border);
+  padding:30px;
+  backdrop-filter:blur(10px);
+  position:relative;
+}
+.tele-panel::after {
+  content:''; position:absolute;
+  top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, var(--p2), transparent);
+}
+
+.panel-title {
+  font-family:var(--font-hud); font-size:.75rem; letter-spacing:3px;
+  color:var(--p2); text-shadow:var(--glow-sm);
+  margin-bottom:20px; padding-bottom:10px;
+  border-bottom:1px solid rgba(139,0,255,.2);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.panel-title::after {
+  content:'LIVE'; font-size:.55rem; letter-spacing:2px;
+  color:var(--mag); animation:blink 1.2s infinite;
+}
+
+.bar-rows { display:flex; flex-direction:column; gap:14px; }
+.bar-row   { display:flex; flex-direction:column; gap:5px; }
+.bar-meta  { display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:.68rem; }
+.bar-lbl   { color:rgba(218,143,255,.55); }
+.bar-val   { color:var(--p2); }
+.bar-track {
+  height:8px; background:rgba(255,255,255,.04);
+  border:1px solid rgba(139,0,255,.2);
+  overflow:hidden; position:relative;
+}
+.bar-fill {
+  height:100%; background:linear-gradient(90deg, var(--p5), var(--p1), var(--p2));
+  box-shadow:0 0 8px var(--p1);
+  transition:width .6s cubic-bezier(.1,.9,.2,1);
+}
+.bar-fill.hot {
+  background:linear-gradient(90deg, var(--p5), var(--mag));
+  box-shadow:0 0 8px var(--mag);
+}
+
+/* Hexagonal node map */
+.hex-map {
+  display:flex; flex-direction:column; gap:20px;
+}
+.hex-grid-row {
+  display:flex; gap:4px; justify-content:center;
+}
+.hex-node {
+  width:48px; height:55px;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono); font-size:.55rem;
+  cursor:none; position:relative;
+  transition:all .25s ease;
+}
+.hex-node.active   { background:rgba(139,0,255,.25); color:var(--p2); }
+.hex-node.online   { background:rgba(0,255,224,.1);  color:var(--teal); }
+.hex-node.warn     { background:rgba(255,0,204,.15); color:var(--mag); }
+.hex-node.inactive { background:rgba(255,255,255,.03); color:rgba(218,143,255,.25); }
+.hex-node:hover    { transform:scale(1.18); z-index:2; }
+
+/* ── CYBORG SCHEMATIC ────────────────────────────────────── */
+#schematic {
+  padding:100px 60px;
+  background:linear-gradient(180deg, var(--dark) 0%, var(--void) 100%);
+  overflow:hidden;
+}
+
+.schema-layout {
+  display:grid; grid-template-columns:340px 1fr 340px;
+  gap:30px; max-width:1200px; margin:0 auto;
+  align-items:center;
+}
+
+/* Side info panels */
+.schema-info { display:flex; flex-direction:column; gap:14px; }
+.info-card {
+  background:var(--panel);
+  border: var(--border);
+  padding:16px;
+  position:relative; overflow:hidden;
+  transition:border-color .3s, box-shadow .3s;
+  cursor:none;
+}
+.info-card:hover { border-color:var(--p2); box-shadow:var(--glow-sm); }
+.info-card::before {
+  content:''; position:absolute; left:0; top:0; bottom:0;
+  width:3px; background:var(--p1);
+  box-shadow:0 0 8px var(--p1);
+}
+.info-card-id {
+  font-family:var(--font-mono); font-size:.58rem; letter-spacing:2px;
+  color:rgba(218,143,255,.4); margin-bottom:4px;
+}
+.info-card-name {
+  font-family:var(--font-hud); font-size:.8rem; color:#fff;
+  letter-spacing:1px; margin-bottom:6px;
+}
+.info-card-stat {
+  font-family:var(--font-mono); font-size:.7rem; color:var(--p2);
+}
+.info-status {
+  position:absolute; top:12px; right:12px;
+  width:8px; height:8px; border-radius:50%;
+}
+.s-green { background:var(--teal); box-shadow:0 0 6px var(--teal); animation:blink 2s infinite; }
+.s-amber { background:#ffaa00;     box-shadow:0 0 6px #ffaa00;     animation:blink 1.5s infinite; }
+.s-red   { background:var(--mag);  box-shadow:0 0 6px var(--mag);  animation:blink .8s infinite; }
+
+/* Centre SVG */
+.schema-svg-wrap {
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+}
+.schema-ring {
+  position:absolute; border-radius:50%;
+  border:1px solid rgba(139,0,255,.08);
+}
+.schema-ring-1 { width:480px; height:480px; animation:spin 40s linear infinite; }
+.schema-ring-2 { width:380px; height:380px; border-style:dashed; border-color:rgba(191,95,255,.08); animation:spin 25s linear infinite reverse; }
+.schema-ring-3 { width:280px; height:280px; border-color:rgba(139,0,255,.15); }
+
+.cyborg-svg { width:100%; max-width:320px; position:relative; z-index:2; }
+
+/* Augment node dots on SVG */
+.aug-dot-wrap { position:absolute; z-index:3; cursor:none; }
+.aug-dot {
+  width:14px; height:14px; border-radius:50%;
+  background:var(--p1); box-shadow:var(--glow-md);
+  border:2px solid var(--p2);
+  animation:pulse-dot 2s infinite;
+  position:relative;
+}
+.aug-dot.amber { background:#ffaa00; box-shadow:0 0 14px #ffaa00; border-color:#ffda00; }
+.aug-dot.mag   { background:var(--mag); box-shadow:var(--glow-mag); border-color:var(--mag); }
+@keyframes pulse-dot {
+  0%,100%{ box-shadow:var(--glow-md); transform:scale(1); }
+  50%    { box-shadow:var(--glow-lg); transform:scale(1.2); }
+}
+
+.aug-dot-label {
+  position:absolute; top:50%; transform:translateY(-50%);
+  font-family:var(--font-mono); font-size:.6rem; letter-spacing:1px;
+  color:var(--p3); white-space:nowrap;
+  background:rgba(4,1,10,.85); padding:3px 7px;
+  border:1px solid rgba(139,0,255,.3);
+}
+.aug-dot-label.right { left:22px; }
+.aug-dot-label.left  { right:22px; }
+
+/* ── TERMINAL ────────────────────────────────────────────── */
+#terminal-section {
+  padding:100px 60px;
+  background:var(--deep);
+}
+
+.term-layout {
+  max-width:900px; margin:0 auto;
+}
+
+.term-window {
+  background:#06020f;
+  border:1px solid rgba(191,95,255,.4);
+  box-shadow:var(--glow-lg), inset 0 0 40px rgba(139,0,255,.04);
+  overflow:hidden;
+}
+
+.term-titlebar {
+  display:flex; align-items:center; gap:8px;
+  background:rgba(139,0,255,.1);
+  padding:10px 18px;
+  border-bottom:1px solid rgba(139,0,255,.25);
+}
+.tb-dot {
+  width:10px; height:10px; border-radius:50%;
+}
+.tb-dot:nth-child(1){ background:#ff5f57; }
+.tb-dot:nth-child(2){ background:#ffbd2e; }
+.tb-dot:nth-child(3){ background:#28c840; }
+.term-title {
+  margin-left:auto; margin-right:auto;
+  font-family:var(--font-mono); font-size:.7rem; letter-spacing:2px;
+  color:rgba(218,143,255,.5);
+}
+
+.term-body {
+  padding:20px; height:340px; overflow-y:auto;
+  font-family:var(--font-mono); font-size:.8rem; line-height:1.7;
+  scrollbar-width:thin; scrollbar-color:rgba(139,0,255,.3) transparent;
+}
+.term-body::-webkit-scrollbar { width:4px; }
+.term-body::-webkit-scrollbar-thumb { background:rgba(139,0,255,.35); border-radius:2px; }
+
+.t-line { display:flex; flex-wrap:wrap; }
+.t-prompt { color:var(--p2); margin-right:8px; user-select:none; }
+.t-cmd    { color:#fff; }
+.t-out    { color:rgba(218,143,255,.7); }
+.t-ok     { color:var(--teal); }
+.t-err    { color:var(--mag); }
+.t-warn   { color:#ffaa00; }
+
+.term-input-row {
+  display:flex; align-items:center;
+  border-top:1px solid rgba(139,0,255,.2);
+  padding:12px 20px;
+  gap:8px;
+}
+.ti-prompt { font-family:var(--font-mono); color:var(--p2); font-size:.85rem; }
+.ti-input {
+  flex:1; background:transparent; border:none; outline:none;
+  font-family:var(--font-mono); font-size:.85rem;
+  color:#fff; caret-color:var(--p2);
+}
+
+/* Help hint */
+.term-hints {
+  margin-top:20px; display:flex; flex-wrap:wrap; gap:10px;
+}
+.hint-chip {
+  font-family:var(--font-mono); font-size:.65rem; letter-spacing:1px;
+  padding:5px 12px; border: var(--border);
+  color:rgba(218,143,255,.6); cursor:none;
+  transition:all .2s ease;
+  background:rgba(139,0,255,.05);
+}
+.hint-chip:hover { background:rgba(139,0,255,.15); color:var(--p2); box-shadow:var(--glow-sm); }
+
+/* ── SPECS STRIP ─────────────────────────────────────────── */
+#specs {
+  padding:60px;
+  border-top: var(--border);
+  border-bottom: var(--border);
+  background:rgba(139,0,255,.04);
+}
+.specs-grid {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:1px; max-width:1100px; margin:0 auto;
+  border:1px solid rgba(139,0,255,.15);
+}
+.spec-cell {
+  padding:30px; text-align:center;
+  border-right:1px solid rgba(139,0,255,.15);
+  position:relative; overflow:hidden;
+}
+.spec-cell:last-child { border-right:none; }
+.spec-cell::before {
+  content:''; position:absolute;
+  bottom:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg, transparent, var(--p1), transparent);
+  transform:scaleX(0); transition:transform .4s;
+}
+.spec-cell:hover::before { transform:scaleX(1); }
+.spec-num {
+  font-family:var(--font-hud); font-size:2.4rem; font-weight:900;
+  color:var(--p2); text-shadow:var(--glow-md); display:block;
+}
+.spec-unit { font-size:1rem; color:var(--p3); }
+.spec-lbl {
+  font-family:var(--font-mono); font-size:.65rem; letter-spacing:2px;
+  color:rgba(218,143,255,.45); margin-top:6px; display:block;
+}
+
+/* ── CTA SECTION ─────────────────────────────────────────── */
+#cta {
+  padding:120px 60px;
+  text-align:center;
+  background:radial-gradient(ellipse at center, rgba(139,0,255,.12) 0%, transparent 70%);
+  position:relative;
+}
+#cta::before {
+  content:''; position:absolute; inset:0;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='1' cy='1' r='1' fill='rgba(139,0,255,0.08)'/%3E%3C/svg%3E");
+  pointer-events:none;
+}
+.cta-sub {
+  font-family:var(--font-mono); font-size:.75rem; letter-spacing:3px;
+  color:rgba(218,143,255,.55); margin-top:20px; margin-bottom:40px;
+  max-width:550px; margin-left:auto; margin-right:auto;
+}
+
+/* ── FOOTER ──────────────────────────────────────────────── */
+footer {
+  padding:30px 60px;
+  border-top: var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+  background:rgba(4,1,10,.6);
+  backdrop-filter:blur(8px);
+}
+.footer-brand {
+  font-family:var(--font-hud); font-size:.75rem; letter-spacing:2px; color:rgba(218,143,255,.4);
+}
+.footer-copy {
+  font-family:var(--font-mono); font-size:.6rem;
+  color:rgba(218,143,255,.25); letter-spacing:1px;
+}
+.footer-links { display:flex; gap:20px; }
+.footer-links a {
+  font-family:var(--font-mono); font-size:.6rem; letter-spacing:1px;
+  color:rgba(218,143,255,.35); text-decoration:none;
+  transition:color .2s;
+}
+.footer-links a:hover { color:var(--p2); }
+
+/* ── ANIMATIONS ──────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(28px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.reveal {
+  opacity:0; transform:translateY(30px);
+  transition:opacity .7s ease, transform .7s ease;
+}
+.reveal.visible { opacity:1; transform:translateY(0); }
+
+/* ── OVERDRIVE / THEME SWITCH ────────────────────────────── */
+.overdrive-border {
+  position:fixed; inset:0; z-index:200; pointer-events:none;
+  border:0px solid var(--mag);
+  box-shadow:inset 0 0 0 rgba(255,0,204,0);
+  transition:border-width .5s, box-shadow .5s;
+}
+body.overdrive .overdrive-border {
+  border-width:6px;
+  box-shadow:inset 0 0 60px rgba(255,0,204,.25);
+  animation:flicker-border 2s infinite alternate;
+}
+@keyframes flicker-border {
+  0%  { border-color:rgba(255,0,204,.4); }
+  100%{ border-color:var(--mag); }
+}
+</style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div id="cursor-ring"></div>
+<div id="cursor-dot"></div>
+
+<!-- Visual overlays -->
+<canvas id="bg-canvas"></canvas>
+<div class="crt-lines"></div>
+<div class="vignette"></div>
+<div class="scan-sweep"></div>
+<div class="overdrive-border"></div>
+
+<!-- ====================================================
+     NAV
+===================================================== -->
+<nav>
+  <div class="nav-brand">
+    <svg class="nav-logo-icon" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+    </svg>
+    <span class="bracket">[</span>NEXUS<span style="color:var(--mag)">-7</span><span class="bracket">]</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#augments">AUGMENTS</a></li>
+    <li><a href="#telemetry">TELEMETRY</a></li>
+    <li><a href="#schematic">SCHEMATIC</a></li>
+    <li><a href="#terminal-section">TERMINAL</a></li>
+    <li><a href="#specs">SPECS</a></li>
+  </ul>
+  <div class="nav-status">
+    <div class="status-dot"></div>
+    <span id="nav-time" class="mono">--:--:--</span>
+    <span style="color:rgba(218,143,255,.3); margin:0 6px;">|</span>
+    <span style="color:var(--teal)">SYS-ONLINE</span>
+  </div>
+</nav>
+
+<!-- ====================================================
+     HERO
+===================================================== -->
+<div id="page">
+<section id="hero">
+  <!-- Corner brackets -->
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <div class="hero-eyebrow">NEXUS-7 // CYBERNETIC AUGMENTATION DIVISION</div>
+
+  <h1 class="hero-title">
+    <span class="glitch" data-text="TRANSCEND">TRANSCEND</span><br/>
+    <span class="line2">HUMAN LIMITS</span>
+  </h1>
+
+  <p class="hero-sub">NEXT-GENERATION BIO-SYNTHETIC ENHANCEMENT · CLASS-7 NEURAL INTEGRATION</p>
+
+  <div class="hero-metrics">
+    <div class="metric">
+      <span class="metric-val" id="m-uptime">00:00:00</span>
+      <span class="metric-lbl">SYS UPTIME</span>
+    </div>
+    <div class="metric">
+      <span class="metric-val" id="m-sync">99.8%</span>
+      <span class="metric-lbl">NEURAL SYNC</span>
+    </div>
+    <div class="metric">
+      <span class="metric-val" id="m-nano">2.4T</span>
+      <span class="metric-lbl">ACTIVE NANITES</span>
+    </div>
+    <div class="metric">
+      <span class="metric-val">4.7ms</span>
+      <span class="metric-lbl">REFLEX LATENCY</span>
+    </div>
+  </div>
+
+  <div class="hero-cta">
+    <button class="btn-primary chamfer" onclick="document.getElementById('augments').scrollIntoView({behavior:'smooth'})">
+      <span>INITIALIZE SEQUENCE</span>
+    </button>
+    <button class="btn-ghost chamfer-sm" onclick="document.getElementById('terminal-section').scrollIntoView({behavior:'smooth'})">
+      ACCESS TERMINAL
+    </button>
+  </div>
+
+  <div class="scroll-hint">SCROLL TO EXPLORE</div>
+</section>
+
+<!-- ====================================================
+     TICKER
+===================================================== -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="ticker">
+    <span class="ticker-item">NEURAL CORE: <span>ACTIVE</span></span>
+    <span class="ticker-item">NANITE DENSITY: <span>97.2%</span></span>
+    <span class="ticker-item">THERMAL: <span>38.4°C</span></span>
+    <span class="ticker-item">BIO-LINK: <span>STABLE</span></span>
+    <span class="ticker-item">FIRMWARE: <span>v12.4.2</span></span>
+    <span class="ticker-item">QUANTUM REACTOR: <span>OPTIMAL</span></span>
+    <span class="ticker-item">EXO-SKELETON: <span>CALIBRATED</span></span>
+    <span class="ticker-item">OPTICAL OVERLAY: <span>RENDERING</span></span>
+    <span class="ticker-item">REFLEX MODULE: <span>ENHANCED 340%</span></span>
+    <span class="ticker-item">SUBDERMAL ARMOR: <span>ENGAGED</span></span>
+    <!-- duplicate for seamless loop -->
+    <span class="ticker-item">NEURAL CORE: <span>ACTIVE</span></span>
+    <span class="ticker-item">NANITE DENSITY: <span>97.2%</span></span>
+    <span class="ticker-item">THERMAL: <span>38.4°C</span></span>
+    <span class="ticker-item">BIO-LINK: <span>STABLE</span></span>
+    <span class="ticker-item">FIRMWARE: <span>v12.4.2</span></span>
+    <span class="ticker-item">QUANTUM REACTOR: <span>OPTIMAL</span></span>
+    <span class="ticker-item">EXO-SKELETON: <span>CALIBRATED</span></span>
+    <span class="ticker-item">OPTICAL OVERLAY: <span>RENDERING</span></span>
+    <span class="ticker-item">REFLEX MODULE: <span>ENHANCED 340%</span></span>
+    <span class="ticker-item">SUBDERMAL ARMOR: <span>ENGAGED</span></span>
+  </div>
+</div>
+
+<!-- ====================================================
+     AUGMENTATION MODULES
+===================================================== -->
+<section id="augments">
+  <div class="section-header reveal">
+    <span class="section-eyebrow">// MODULE CATALOGUE</span>
+    <h2 class="section-title">AUGMENTATION <span>SYSTEMS</span></h2>
+  </div>
+
+  <div class="aug-grid">
+    <!-- Card 1 -->
+    <div class="aug-card chamfer reveal" style="transition-delay:.1s">
+      <span class="aug-badge badge-online">ONLINE</span>
+      <svg class="aug-icon" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.04-4.79V8.75a2.5 2.5 0 0 1 3.5-2.25V4.5A2.5 2.5 0 0 1 9.5 2z"/>
+        <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.04-4.79V8.75a2.5 2.5 0 0 0-3.5-2.25V4.5A2.5 2.5 0 0 0 14.5 2z"/>
+      </svg>
+      <div class="aug-id">MOD-001 // NEURAL</div>
+      <div class="aug-name">CEREBRAL CORE LINK</div>
+      <p class="aug-desc">Direct cortex-to-HUD routing matrix. Enables real-time cognitive command routing, battlefield overlay rendering, and memory encryption at 480 GHz.</p>
+      <div class="aug-stat"><span class="aug-stat-lbl">BANDWIDTH</span><span class="aug-stat-val">480 GHz</span></div>
+      <div class="aug-stat"><span class="aug-stat-lbl">SYNC RATE</span><span class="aug-stat-val">99.8%</span></div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="aug-card chamfer reveal" style="transition-delay:.2s">
+      <span class="aug-badge badge-online">ONLINE</span>
+      <svg class="aug-icon" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="8" stroke-dasharray="4 3"/>
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
+      </svg>
+      <div class="aug-id">MOD-002 // OCULAR</div>
+      <div class="aug-name">OCULAR VECTOR HUD</div>
+      <p class="aug-desc">4K retina projection overlaying thermal, bio-signature, trajectory, and structural analysis vectors directly onto optic nerve pathways in real-time.</p>
+      <div class="aug-stat"><span class="aug-stat-lbl">RESOLUTION</span><span class="aug-stat-val">8K RETINA</span></div>
+      <div class="aug-stat"><span class="aug-stat-lbl">SCAN RANGE</span><span class="aug-stat-val">2.4 km</span></div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="aug-card chamfer reveal" style="transition-delay:.3s">
+      <span class="aug-badge badge-online">ONLINE</span>
+      <svg class="aug-icon" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+      <div class="aug-id">MOD-003 // CARDIAC</div>
+      <div class="aug-name">QUANTUM FUSION HEART</div>
+      <p class="aug-desc">Cold-fusion micro-reactor replacing the biological heart. Supplies 120W continuous current to cybernetic systems and emergency burst mode up to 480W.</p>
+      <div class="aug-stat"><span class="aug-stat-lbl">OUTPUT</span><span class="aug-stat-val">120W CONT.</span></div>
+      <div class="aug-stat"><span class="aug-stat-lbl">BURST</span><span class="aug-stat-val">480W</span></div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="aug-card chamfer reveal" style="transition-delay:.4s">
+      <span class="aug-badge badge-beta">BETA</span>
+      <svg class="aug-icon" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 6h.01M12 12h.01M12 18h.01"/>
+      </svg>
+      <div class="aug-id">MOD-004 // EXOSKEL</div>
+      <div class="aug-name">TITANIUM EXO-FRAME</div>
+      <p class="aug-desc">Sub-dermal titanium-graphene lattice bonded to skeletal structure. Provides 600% tensile force amplification and ballistic resistance up to 14.5mm AP.</p>
+      <div class="aug-stat"><span class="aug-stat-lbl">FORCE AMP</span><span class="aug-stat-val">600%</span></div>
+      <div class="aug-stat"><span class="aug-stat-lbl">ARMOR CLASS</span><span class="aug-stat-val">NIJ IV+</span></div>
+    </div>
+
+    <!-- Card 5 -->
+    <div class="aug-card chamfer reveal" style="transition-delay:.5s">
+      <span class="aug-badge badge-beta">BETA</span>
+      <svg class="aug-icon" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
+      <div class="aug-id">MOD-005 // NANITE</div>
+      <div class="aug-name">NANITE REPAIR SWARM</div>
+      <p class="aug-desc">2.4 trillion bio-synthetic nanites distributed through the circulatory system. Performs autonomous cellular repair, toxin neutralisation, and structural maintenance.</p>
+      <div class="aug-stat"><span class="aug-stat-lbl">NANITE COUNT</span><span class="aug-stat-val">2.4T</span></div>
+      <div class="aug-stat"><span class="aug-stat-lbl">REPAIR RATE</span><span class="aug-stat-val">12 cm²/min</span></div>
+    </div>
+
+    <!-- Card 6 -->
+    <div class="aug-card chamfer reveal" style="transition-delay:.6s">
+      <span class="aug-badge badge-locked">LOCKED</span>
+      <svg class="aug-icon" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+      <div class="aug-id">MOD-006 // REFLEX</div>
+      <div class="aug-name">SYNAPTIC OVERDRIVE</div>
+      <p class="aug-desc">Class-Ω overclocked reflex amplifier. Dilates perceived time by 340%, enabling superhuman reaction speeds by bypassing biological neural signal latency.</p>
+      <div class="aug-stat"><span class="aug-stat-lbl">TIME DILATION</span><span class="aug-stat-val">340%</span></div>
+      <div class="aug-stat"><span class="aug-stat-lbl">LATENCY</span><span class="aug-stat-val">0.4ms</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================
+     TELEMETRY PANEL
+===================================================== -->
+<section id="telemetry">
+  <div class="section-header reveal">
+    <span class="section-eyebrow">// LIVE DIAGNOSTICS</span>
+    <h2 class="section-title">SYSTEM <span>TELEMETRY</span></h2>
+  </div>
+
+  <div class="tele-layout">
+    <!-- Bars -->
+    <div class="tele-panel reveal">
+      <div class="panel-title">CORE SUBSYSTEM ANALYSIS</div>
+      <div class="bar-rows" id="bar-rows">
+        <!-- injected by JS -->
+      </div>
+    </div>
+
+    <!-- Hex node map -->
+    <div class="tele-panel reveal" style="transition-delay:.2s">
+      <div class="panel-title">NEURAL NODE MAP</div>
+      <div class="hex-map" id="hex-map">
+        <!-- injected by JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================
+     SCHEMATIC
+===================================================== -->
+<section id="schematic">
+  <div class="section-header reveal">
+    <span class="section-eyebrow">// AUGMENTATION BLUEPRINT</span>
+    <h2 class="section-title">UNIT <span>SCHEMATIC</span></h2>
+  </div>
+
+  <div class="schema-layout">
+    <!-- Left info cards -->
+    <div class="schema-info reveal">
+      <div class="info-card">
+        <div class="info-status s-green"></div>
+        <div class="info-card-id">PORT-001</div>
+        <div class="info-card-name">CEREBRAL LINK MATRIX</div>
+        <div class="info-card-stat">BANDWIDTH: 480 GHz · SYNC: 99.8%</div>
+      </div>
+      <div class="info-card">
+        <div class="info-status s-green"></div>
+        <div class="info-card-id">PORT-002</div>
+        <div class="info-card-name">OCULAR VECTOR SYSTEM</div>
+        <div class="info-card-stat">RENDER: 8K · RANGE: 2.4km</div>
+      </div>
+      <div class="info-card">
+        <div class="info-status s-amber"></div>
+        <div class="info-card-id">PORT-005</div>
+        <div class="info-card-name">NANITE REPAIR SWARM</div>
+        <div class="info-card-stat">COUNT: 2.4T · STATUS: CALIBRATING</div>
+      </div>
+    </div>
+
+    <!-- Centre SVG silhouette -->
+    <div class="schema-svg-wrap reveal">
+      <div class="schema-ring schema-ring-1"></div>
+      <div class="schema-ring schema-ring-2"></div>
+      <div class="schema-ring schema-ring-3"></div>
+
+      <svg class="cyborg-svg" viewBox="0 0 320 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bodyGlow" cx="50%" cy="45%" r="50%">
+            <stop offset="0%" stop-color="#8b00ff" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="#04010a" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="160" cy="240" r="190" fill="url(#bodyGlow)"/>
+        <!-- Head -->
+        <path d="M160 30 C138 30,124 44,124 64 C124 83,138 92,138 100 C118 106,96 120,82 148 C70 170,62 205,58 240 C55 258,63 264,68 258 C75 249,80 210,88 192 C88 216,90 260,88 298 C86 326,76 355,68 382 C63 398,52 424,48 438 C44 450,52 457,56 448 L78 396 L90 330 C98 342,114 354,128 360 L122 420 L112 482 C110 496,120 496,122 490 L140 428 L154 365 C157 362,163 362,166 365 L180 428 L198 490 C200 496,210 496,208 482 L198 420 L192 360 C206 354,222 342,230 330 L242 396 L264 448 C268 457,276 450,272 438 C268 424,257 398,252 382 C244 355,234 326,232 298 C230 260,232 216,232 192 C240 210,245 249,252 258 C257 264,265 258,262 240 C258 205,250 170,238 148 C224 120,202 106,182 100 C182 92,196 83,196 64 C196 44,182 30,160 30 Z"
+          stroke="rgba(139,0,255,0.5)" stroke-width="1.2" fill="rgba(12,4,28,0.7)"/>
+        <!-- Circuit lines -->
+        <path d="M138 128 Q160 146,182 128" stroke="rgba(191,95,255,0.35)" stroke-width="0.8" stroke-dasharray="4,4"/>
+        <path d="M132 160 Q160 180,188 160" stroke="rgba(191,95,255,0.35)" stroke-width="0.8" stroke-dasharray="4,4"/>
+        <path d="M130 195 Q160 218,190 195" stroke="rgba(191,95,255,0.35)" stroke-width="0.8" stroke-dasharray="4,4"/>
+        <path d="M152 105 V300"             stroke="rgba(139,0,255,0.2)"  stroke-width="0.6"/>
+        <path d="M168 105 V300"             stroke="rgba(139,0,255,0.2)"  stroke-width="0.6"/>
+        <!-- Head circuit -->
+        <path d="M160 74 Q148 68,144 58 Q144 44,160 46 Q176 44,176 58 Q172 68,160 74Z"
+          stroke="rgba(191,95,255,0.5)" stroke-width="0.8" fill="rgba(139,0,255,0.1)"/>
+      </svg>
+
+      <!-- Augment dots -->
+      <div class="aug-dot-wrap" style="top:14%; left:48%;">
+        <div class="aug-dot"></div>
+        <div class="aug-dot-label right">NEURAL · PORT-001</div>
+      </div>
+      <div class="aug-dot-wrap" style="top:20%; left:60%;">
+        <div class="aug-dot mag"></div>
+        <div class="aug-dot-label right">OCULAR · PORT-002</div>
+      </div>
+      <div class="aug-dot-wrap" style="top:40%; left:46%;">
+        <div class="aug-dot"></div>
+        <div class="aug-dot-label left">CARDIAC · PORT-003</div>
+      </div>
+      <div class="aug-dot-wrap" style="top:45%; left:18%;">
+        <div class="aug-dot amber"></div>
+        <div class="aug-dot-label right">EXOFRAME · PORT-004</div>
+      </div>
+      <div class="aug-dot-wrap" style="top:78%; left:38%;">
+        <div class="aug-dot mag"></div>
+        <div class="aug-dot-label right">NANITE · PORT-005</div>
+      </div>
+    </div>
+
+    <!-- Right info cards -->
+    <div class="schema-info reveal" style="transition-delay:.2s">
+      <div class="info-card">
+        <div class="info-status s-green"></div>
+        <div class="info-card-id">PORT-003</div>
+        <div class="info-card-name">QUANTUM FUSION HEART</div>
+        <div class="info-card-stat">OUTPUT: 120W · BURST: 480W</div>
+      </div>
+      <div class="info-card">
+        <div class="info-status s-amber"></div>
+        <div class="info-card-id">PORT-004</div>
+        <div class="info-card-name">TITANIUM EXO-FRAME</div>
+        <div class="info-card-stat">FORCE AMP: 600% · BETA FIRMWARE</div>
+      </div>
+      <div class="info-card">
+        <div class="info-status s-red"></div>
+        <div class="info-card-id">PORT-006</div>
+        <div class="info-card-name">SYNAPTIC OVERDRIVE</div>
+        <div class="info-card-stat">STATUS: LOCKED · CLASS-Ω</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================
+     TERMINAL
+===================================================== -->
+<section id="terminal-section">
+  <div class="section-header reveal">
+    <span class="section-eyebrow">// COMMAND INTERFACE</span>
+    <h2 class="section-title">NEXUS <span>TERMINAL</span></h2>
+  </div>
+
+  <div class="term-layout">
+    <div class="term-window reveal">
+      <div class="term-titlebar">
+        <div class="tb-dot"></div>
+        <div class="tb-dot"></div>
+        <div class="tb-dot"></div>
+        <div class="term-title">NEXUS-7 CYBORG SHELL v12.4 — CLASSIFIED</div>
+      </div>
+      <div class="term-body" id="term-out"></div>
+      <div class="term-input-row">
+        <span class="ti-prompt">NEXUS-7:~#</span>
+        <input class="ti-input" id="ti-input" type="text" autocomplete="off" spellcheck="false" placeholder="enter command…"/>
+      </div>
+    </div>
+
+    <div class="term-hints reveal" style="transition-delay:.2s">
+      <span class="hint-chip" data-cmd="help">help</span>
+      <span class="hint-chip" data-cmd="status">status</span>
+      <span class="hint-chip" data-cmd="scan">scan</span>
+      <span class="hint-chip" data-cmd="overdrive on">overdrive on</span>
+      <span class="hint-chip" data-cmd="overdrive off">overdrive off</span>
+      <span class="hint-chip" data-cmd="hud purple">hud purple</span>
+      <span class="hint-chip" data-cmd="hud magenta">hud magenta</span>
+      <span class="hint-chip" data-cmd="nanite count">nanite count</span>
+      <span class="hint-chip" data-cmd="clear">clear</span>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================
+     SPECS
+===================================================== -->
+<section id="specs">
+  <div class="specs-grid">
+    <div class="spec-cell reveal">
+      <span class="spec-num"><span class="spec-num-counter" data-target="99" data-suffix=".8%">0%</span></span>
+      <span class="spec-lbl">NEURAL SYNC RATE</span>
+    </div>
+    <div class="spec-cell reveal" style="transition-delay:.15s">
+      <span class="spec-num"><span class="spec-num-counter" data-target="2400" data-suffix="T">0</span></span>
+      <span class="spec-lbl">ACTIVE NANITES (BILLIONS)</span>
+    </div>
+    <div class="spec-cell reveal" style="transition-delay:.3s">
+      <span class="spec-num"><span class="spec-num-counter" data-target="600" data-suffix="%">0%</span></span>
+      <span class="spec-lbl">EXOFRAME FORCE AMP</span>
+    </div>
+    <div class="spec-cell reveal" style="transition-delay:.45s">
+      <span class="spec-num"><span class="spec-num-counter" data-target="480" data-suffix="W">0W</span></span>
+      <span class="spec-lbl">REACTOR BURST OUTPUT</span>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================
+     CTA
+===================================================== -->
+<section id="cta">
+  <div class="reveal">
+    <span class="section-eyebrow">// READY TO EVOLVE?</span>
+    <h2 class="section-title" style="font-size:clamp(2rem,5vw,4rem); margin-bottom:0">
+      BEGIN YOUR <span>AUGMENTATION</span>
+    </h2>
+    <p class="cta-sub">Clearance Level 7 required. All augmentations are irreversible beyond the 48-hour integration window.</p>
+    <div class="hero-cta" style="justify-content:center">
+      <button class="btn-primary chamfer"><span>REQUEST CLEARANCE</span></button>
+      <button class="btn-ghost chamfer-sm">VIEW DOCUMENTATION</button>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================
+     FOOTER
+===================================================== -->
+<footer>
+  <div class="footer-brand">[NEXUS-7] // AUGMENTATION DIV.</div>
+  <div class="footer-copy">© 2157 NEXUS CORPORATION · ALL RIGHTS RESERVED · CLASSIFIED LEVEL-7</div>
+  <div class="footer-links">
+    <a href="#">PRIVACY</a>
+    <a href="#">DOCS</a>
+    <a href="#">SUPPORT</a>
+  </div>
+</footer>
+
+</div><!-- #page -->
+
+<!-- ====================================================
+     SCRIPTS
+===================================================== -->
+<script>
+/* ── CURSOR ───────────────────────────────────────────────── */
+const ring = document.getElementById('cursor-ring');
+const dot  = document.getElementById('cursor-dot');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  dot.style.left = mx + 'px';
+  dot.style.top  = my + 'px';
+});
+
+// Smooth ring follow
+(function animRing() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) * 0.12;
+  ring.style.left = rx + 'px';
+  ring.style.top  = ry + 'px';
+  requestAnimationFrame(animRing);
+})();
+
+// Expand ring on hoverable elements
+document.querySelectorAll('button, a, .aug-card, .info-card, .hint-chip, .aug-dot').forEach(el => {
+  el.addEventListener('mouseenter', () => { ring.style.width='56px'; ring.style.height='56px'; });
+  el.addEventListener('mouseleave', () => { ring.style.width='36px'; ring.style.height='36px'; });
+});
+
+/* ── CANVAS PARTICLE BACKGROUND ──────────────────────────── */
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx    = canvas.getContext('2d');
+  let W, H, particles = [], pkts = [];
+  const N = 70, CONN = 130;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < N; i++) {
+    particles.push({
+      x: Math.random()*W, y: Math.random()*H,
+      vx: (Math.random()-.5)*.45, vy: (Math.random()-.5)*.45,
+      r: Math.random()*1.8+.6,
+      b: Math.random()
+    });
+  }
+
+  let mouseX = null, mouseY = null;
+  window.addEventListener('mousemove', e => { mouseX=e.clientX; mouseY=e.clientY; });
+  window.addEventListener('mouseout',  () => { mouseX=null; mouseY=null; });
+
+  window.addEventListener('click', e => {
+    for (let i=0;i<14;i++) {
+      const a=Math.random()*Math.PI*2, s=Math.random()*2.5+1;
+      particles.push({
+        x:e.clientX, y:e.clientY,
+        vx:Math.cos(a)*s, vy:Math.sin(a)*s,
+        r:Math.random()*2+.5, b:1,
+        temp:true, life:1
+      });
+    }
+  });
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+
+    // Remove dead temp particles
+    particles = particles.filter(p => !p.temp || p.life > 0);
+
+    particles.forEach((p,i) => {
+      // Move
+      p.x += p.vx; p.y += p.vy;
+      if (p.x<0||p.x>W) p.vx*=-1;
+      if (p.y<0||p.y>H) p.vy*=-1;
+      p.x = Math.max(0,Math.min(W,p.x));
+      p.y = Math.max(0,Math.min(H,p.y));
+
+      // Mouse repel
+      if (mouseX!==null) {
+        const dx=p.x-mouseX, dy=p.y-mouseY, d=Math.hypot(dx,dy);
+        if (d<120) { const f=(120-d)/120; p.x+=dx/d*f*2; p.y+=dy/d*f*2; }
+      }
+
+      if (p.temp) {
+        p.life -= .018;
+      } else {
+        p.b += p.bDir ?? .008;
+        if (p.b>1||p.b<.15) { p.bDir = p.bDir ? -p.bDir : -.008; }
+      }
+
+      const alpha = p.temp ? p.life*.7 : p.b*.55;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(139,0,255,${alpha})`;
+      ctx.fill();
+
+      // Connections
+      for (let j=i+1;j<particles.length;j++) {
+        const q=particles[j];
+        const d=Math.hypot(p.x-q.x, p.y-q.y);
+        if (d<CONN) {
+          const a=(1-d/CONN)*.09 * (p.temp ? p.life : 1);
+          ctx.beginPath();
+          ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y);
+          ctx.strokeStyle=`rgba(139,0,255,${a})`;
+          ctx.lineWidth=.8;
+          ctx.stroke();
+        }
+      }
+    });
+
+    // Packets
+    if (Math.random()<.04 && particles.length>5) {
+      const i=Math.floor(Math.random()*particles.length);
+      const p1=particles[i];
+      for (let j=0;j<particles.length;j++) {
+        if (i===j) continue;
+        const p2=particles[j];
+        if (Math.hypot(p1.x-p2.x,p1.y-p2.y)<CONN && pkts.length<20) {
+          pkts.push({s:p1, e:p2, t:0, speed:Math.random()*.02+.01});
+          break;
+        }
+      }
+    }
+    pkts = pkts.filter(pk => pk.t<1);
+    pkts.forEach(pk => {
+      pk.t += pk.speed;
+      const px=pk.s.x+(pk.e.x-pk.s.x)*pk.t;
+      const py=pk.s.y+(pk.e.y-pk.s.y)*pk.t;
+      ctx.beginPath();
+      ctx.arc(px,py,2.5,0,Math.PI*2);
+      ctx.fillStyle='rgba(191,95,255,.9)';
+      ctx.shadowBlur=10; ctx.shadowColor='#8b00ff';
+      ctx.fill();
+      ctx.shadowBlur=0;
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ── CLOCK ────────────────────────────────────────────────── */
+const navTime   = document.getElementById('nav-time');
+const mUptime   = document.getElementById('m-uptime');
+const boot = Date.now();
+setInterval(() => {
+  const now = new Date();
+  navTime.textContent = now.toTimeString().slice(0,8);
+  const e = Date.now()-boot;
+  const h=String(Math.floor(e/3600000)).padStart(2,'0');
+  const m=String(Math.floor((e%3600000)/60000)).padStart(2,'0');
+  const s=String(Math.floor((e%60000)/1000)).padStart(2,'0');
+  mUptime.textContent = `${h}:${m}:${s}`;
+}, 1000);
+
+// Fluctuate nano count
+const mSync = document.getElementById('m-sync');
+const mNano = document.getElementById('m-nano');
+setInterval(() => {
+  const s = (99.2 + Math.random()*.8).toFixed(1);
+  mSync.textContent = s+'%';
+  const n = (2.38 + Math.random()*.04).toFixed(2);
+  mNano.textContent = n+'T';
+}, 2200);
+
+/* ── REVEAL ON SCROLL ─────────────────────────────────────── */
+const revealEls = document.querySelectorAll('.reveal');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+}, { threshold:.12 });
+revealEls.forEach(el => obs.observe(el));
+
+/* ── BAR ROWS ─────────────────────────────────────────────── */
+const BARS = [
+  { lbl:'CEREBRAL INTERFACE', val:96, hot:false },
+  { lbl:'NANITE INTEGRATION', val:94, hot:false },
+  { lbl:'REACTOR OUTPUT',     val:82, hot:false },
+  { lbl:'EXOFRAME SYNC',      val:78, hot:false },
+  { lbl:'THERMAL LOAD',       val:68, hot:true  },
+  { lbl:'OCULAR RENDER FPS',  val:99, hot:false },
+];
+const barContainer = document.getElementById('bar-rows');
+BARS.forEach((b,i) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'bar-row';
+  const target = Math.max(30, Math.min(99, b.val + Math.floor(Math.random()*8-4)));
+  wrap.innerHTML = `
+    <div class="bar-meta">
+      <span class="bar-lbl">${b.lbl}</span>
+      <span class="bar-val" id="bv-${i}">${target}%</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill ${b.hot?'hot':''}" id="bf-${i}" style="width:0%"></div></div>`;
+  barContainer.appendChild(wrap);
+  setTimeout(() => document.getElementById(`bf-${i}`).style.width=target+'%', 400+i*100);
+});
+
+// Fluctuate bars live
+setInterval(() => {
+  BARS.forEach((b,i) => {
+    const t = Math.max(30, Math.min(99, b.val + Math.floor(Math.random()*12-6)));
+    const el = document.getElementById(`bf-${i}`);
+    const vl = document.getElementById(`bv-${i}`);
+    if(el){el.style.width=t+'%';}
+    if(vl){vl.textContent=t+'%';}
+  });
+}, 3000);
+
+/* ── HEX MAP ──────────────────────────────────────────────── */
+const hexMap = document.getElementById('hex-map');
+const rows = [
+  ['A1','A2','A3','A4'],
+  ['B1','B2','B3','B4','B5'],
+  ['C1','C2','C3','C4'],
+  ['D1','D2','D3'],
+];
+const states = ['active','online','online','warn','inactive','inactive','active','online'];
+rows.forEach(row => {
+  const rowEl = document.createElement('div');
+  rowEl.className='hex-grid-row';
+  row.forEach(id => {
+    const n=document.createElement('div');
+    n.className='hex-node '+states[Math.floor(Math.random()*states.length)];
+    n.textContent=id;
+    n.title='Node '+id;
+    rowEl.appendChild(n);
+  });
+  hexMap.appendChild(rowEl);
+});
+
+// Random node blink
+setInterval(() => {
+  const nodes = document.querySelectorAll('.hex-node');
+  const pick  = nodes[Math.floor(Math.random()*nodes.length)];
+  const prev  = pick.className.split(' ')[1];
+  const opts  = ['active','online','warn','inactive'];
+  pick.className = 'hex-node '+opts[Math.floor(Math.random()*opts.length)];
+  setTimeout(() => { pick.className='hex-node '+prev; }, 400);
+}, 800);
+
+/* ── TERMINAL ─────────────────────────────────────────────── */
+const termOut = document.getElementById('term-out');
+const tiInput = document.getElementById('ti-input');
+
+function tPrint(text, cls='t-out', delay=0) {
+  setTimeout(() => {
+    const d = document.createElement('div');
+    d.className='t-line';
+    d.innerHTML=`<span class="${cls}">${text}</span>`;
+    termOut.appendChild(d);
+    termOut.scrollTop=termOut.scrollHeight;
+  }, delay);
+}
+function tCmd(prompt, cmd) {
+  const d=document.createElement('div');
+  d.className='t-line';
+  d.innerHTML=`<span class="t-prompt">${prompt}</span><span class="t-cmd">${cmd}</span>`;
+  termOut.appendChild(d);
+  termOut.scrollTop=termOut.scrollHeight;
+}
+
+// Boot sequence
+const bootLines = [
+  [0,  'NEXUS-7 CYBERNETIC SHELL v12.4.2 — INITIALIZING…','t-ok'],
+  [250,'LOADING KERNEL MODULES…','t-out'],
+  [500,'NEURAL BRIDGE DRIVER: OK','t-ok'],
+  [700,'QUANTUM REACTOR INTERFACE: OK','t-ok'],
+  [900,'NANITE MANAGEMENT DAEMON: OK','t-ok'],
+  [1100,'OCULAR HUD DRIVER: OK','t-ok'],
+  [1300,'EXOFRAME MOTOR CONTROLLER: WARNING — BETA FIRMWARE','t-warn'],
+  [1550,'SYNAPTIC OVERDRIVE MODULE: LOCKED — CLEARANCE DENIED','t-err'],
+  [1800,'──────────────────────────────────────────────────','t-out'],
+  [1900,'ALL SYSTEMS NOMINAL. TYPE <span style="color:var(--p2)">help</span> FOR INSTRUCTIONS.','t-ok'],
+];
+bootLines.forEach(([d,t,c]) => tPrint(t,c,d));
+
+const COMMANDS = {
+  help() {
+    tPrint('AVAILABLE COMMANDS:','t-ok');
+    tPrint('  status            — run full system diagnostic','t-out');
+    tPrint('  scan              — scan environment for bio-signatures','t-out');
+    tPrint('  nanite count      — report active nanite census','t-out');
+    tPrint('  overdrive [on|off]— toggle synaptic overdrive (ADMIN)','t-out');
+    tPrint('  hud [purple|magenta] — switch HUD accent color','t-out');
+    tPrint('  clear             — wipe terminal buffer','t-out');
+  },
+  status() {
+    tPrint('INITIATING DIAGNOSTIC SWEEP…','t-warn');
+    const checks=[
+      [200,'[OK]  CEREBRAL LINK ............... 99.8% SYNC','t-ok'],
+      [450,'[OK]  QUANTUM REACTOR ............. 120W OUTPUT','t-ok'],
+      [700,'[OK]  NANITE SWARM ................ 2.41T ACTIVE','t-ok'],
+      [950,'[WARN] EXOFRAME FIRMWARE ........... BETA v0.9','t-warn'],
+      [1200,'[OK]  OCULAR HUD .................. 8K @ 144fps','t-ok'],
+      [1450,'[LOCK] SYNAPTIC OVERDRIVE .......... ACCESS DENIED','t-err'],
+      [1700,'DIAGNOSTIC COMPLETE — 4 OK · 1 WARNING · 1 LOCKED','t-ok'],
+    ];
+    checks.forEach(([d,t,c]) => tPrint(t,c,d));
+  },
+  scan() {
+    tPrint('SCANNING ENVIRONMENT…','t-warn');
+    setTimeout(()=>{
+      const n = Math.floor(Math.random()*4)+1;
+      tPrint(`DETECTED ${n} BIO-SIGNATURE${n>1?'S':''} IN PROXIMITY`,'t-ok');
+      for(let i=0;i<n;i++) {
+        tPrint(`  TARGET ${i+1}: RANGE ${(Math.random()*200+10).toFixed(0)}m · THREAT: ${['LOW','MEDIUM','HIGH'][Math.floor(Math.random()*3)]}`,'t-out');
+      }
+    },800);
+  },
+  'nanite count'() {
+    tPrint('QUERYING NANITE MANAGEMENT DAEMON…','t-out');
+    setTimeout(()=>{
+      const count = (2.38+Math.random()*.04).toFixed(2);
+      tPrint(`ACTIVE NANITES: ${count} TRILLION`,'t-ok');
+      tPrint('REPAIR BAYS: IDLE · TOXIN FILTERS: CLEAR','t-ok');
+    },600);
+  },
+  'overdrive on'() {
+    document.body.classList.add('overdrive');
+    document.documentElement.style.setProperty('--p1','#ff00cc');
+    document.documentElement.style.setProperty('--p2','#ff66e0');
+    tPrint('!!! SYNAPTIC OVERDRIVE ENGAGED !!!','t-err');
+    tPrint('WARNING: PROLONGED USE CAUSES IRREVERSIBLE NEURAL DAMAGE','t-warn');
+  },
+  'overdrive off'() {
+    document.body.classList.remove('overdrive');
+    document.documentElement.style.setProperty('--p1','#8b00ff');
+    document.documentElement.style.setProperty('--p2','#bf5fff');
+    tPrint('SYNAPTIC OVERDRIVE DISENGAGED — RETURNING TO BASELINE','t-ok');
+  },
+  'hud purple'() {
+    document.documentElement.style.setProperty('--p1','#8b00ff');
+    document.documentElement.style.setProperty('--p2','#bf5fff');
+    document.documentElement.style.setProperty('--mag','#ff00cc');
+    tPrint('HUD ACCENT SWITCHED TO PURPLE MATRIX','t-ok');
+  },
+  'hud magenta'() {
+    document.documentElement.style.setProperty('--p1','#cc00aa');
+    document.documentElement.style.setProperty('--p2','#ff44cc');
+    document.documentElement.style.setProperty('--mag','#8b00ff');
+    tPrint('HUD ACCENT SWITCHED TO MAGENTA MATRIX','t-ok');
+  },
+  clear() {
+    termOut.innerHTML='';
+  },
+};
+
+function handleCmd(raw) {
+  const cmd = raw.trim().toLowerCase();
+  tCmd('NEXUS-7:~# ', raw);
+  if (!cmd) return;
+  const fn = COMMANDS[cmd];
+  if (fn) fn();
+  else tPrint(`COMMAND NOT FOUND: "${cmd}" — type <span style="color:var(--p2)">help</span> for list`,'t-err');
+}
+
+tiInput.addEventListener('keydown', e => {
+  if (e.key==='Enter') { handleCmd(tiInput.value); tiInput.value=''; }
+});
+
+document.querySelectorAll('.hint-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    tiInput.value = chip.dataset.cmd;
+    tiInput.focus();
+    handleCmd(chip.dataset.cmd);
+    tiInput.value='';
+  });
+});
+
+/* ── COUNTER ANIMATION ────────────────────────────────────── */
+const counters = document.querySelectorAll('.spec-num-counter');
+const counterObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    const target = parseFloat(el.dataset.target);
+    const suffix = el.dataset.suffix||'';
+    let start = 0, dur = 1800;
+    const step = timestamp => {
+      if (!start) start = timestamp;
+      const prog = Math.min((timestamp-start)/dur, 1);
+      const ease = 1-Math.pow(1-prog,3);
+      el.textContent = Math.floor(ease*target)+suffix;
+      if (prog<1) requestAnimationFrame(step);
+      else el.textContent = target+suffix;
+    };
+    requestAnimationFrame(step);
+    counterObs.unobserve(el);
+  });
+}, { threshold:.5 });
+counters.forEach(c => counterObs.observe(c));
+</script>
+</body>
+</html>
