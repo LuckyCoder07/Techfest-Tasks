@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIVE — 3D Ocean Tunnel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300;1,400&family=DM+Sans:wght@300;400&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{overflow-x:hidden}
+body{height:600vh;overflow-x:hidden;font-family:'DM Sans',system-ui,sans-serif;color:#fff;background:#020408}
+
+/* Background canvas — procedural caustic-light field.
+   Replaces the old flat CSS gradient div. Painted entirely in JS
+   (see drawFrame()), so it can react to scroll position, scroll
+   velocity, and live cursor position every animation frame. */
+#bgCanvas{position:fixed;inset:0;z-index:-1;display:block}
+
+/* Vignette darkens toward abyss */
+#vgn{position:fixed;inset:0;z-index:50;pointer-events:none}
+
+/* ─── 3D STACK ─── */
+/* Perspective container — fixed, covers viewport */
+#vp{position:fixed;inset:0;z-index:1;perspective:900px;perspective-origin:50% 50%;overflow:hidden}
+/* Stage receives mouse-rotation */
+#stg{position:absolute;inset:0;transform-style:preserve-3d}
+/* World receives scroll-driven translateZ */
+#wld{position:absolute;inset:0;transform-style:preserve-3d}
+
+/* Every scene object is absolutely placed in this 3D space */
+.el{position:absolute;transform-style:preserve-3d;will-change:transform,opacity}
+
+/* ─── ANIMS ─── */
+@keyframes jfl{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(-18px) rotate(2deg)}}
+@keyframes lure{from{filter:drop-shadow(0 0 5px rgba(0,255,155,.85))}to{filter:drop-shadow(0 0 22px rgba(0,255,155,1))}}
+@keyframes bob{0%,100%{transform:translateY(0);opacity:.32}50%{transform:translateY(7px);opacity:.7}}
+@keyframes drift{from{transform:translate(0,0)}to{transform:translate(var(--dx,8px),var(--dy,-15px))}}
+@keyframes rb{0%{transform:translateY(0) scale(1);opacity:.65}100%{transform:translateY(-150px) scale(1.1);opacity:0}}
+@keyframes rp{from{opacity:var(--ro,.1)}to{opacity:calc(var(--ro,.1)*.42)}}
+
+/* ─── HUD ─── */
+#hud{position:fixed;inset:0;z-index:100;pointer-events:none}
+
+#entry{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ht{font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(7rem,20vw,16rem);font-weight:300;font-style:italic;line-height:1;letter-spacing:-.03em;color:rgba(255,255,255,.93);text-shadow:0 2px 60px rgba(0,160,220,.4)}
+.hs{font-weight:300;font-size:clamp(.72rem,1.4vw,.88rem);letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.44);margin-top:.9rem}
+.sh{font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.12em;color:rgba(255,255,255,.3);display:flex;flex-direction:column;align-items:center;gap:7px;margin-top:2.5rem;animation:bob 2.4s ease-in-out infinite}
+
+/* Zone label bottom-centre */
+#zl{position:absolute;bottom:7%;left:50%;transform:translateX(-50%);text-align:center;opacity:0;transition:opacity .7s ease}
+.ze{font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.34);margin-bottom:8px}
+.zt{font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(1.6rem,3.5vw,2.8rem);font-weight:300;font-style:italic;color:rgba(255,255,255,.88);line-height:1.1}
+.zd{font-family:'Space Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.24);margin-top:5px;letter-spacing:.1em}
+
+/* Depth meter */
+.dm{position:absolute;right:20px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:7px}
+.dv{font-family:'Space Mono',monospace;font-size:8px;color:rgba(255,255,255,.55);white-space:nowrap}
+.dt{width:1px;height:110px;background:rgba(255,255,255,.14);position:relative}
+.df{position:absolute;top:0;left:0;width:100%;background:rgba(255,255,255,.7);height:0%}
+.dd{position:absolute;left:50%;transform:translate(-50%,-50%);width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.8);top:0%}
+.dl{font-family:'Space Mono',monospace;font-size:7px;color:rgba(255,255,255,.26);letter-spacing:.18em;writing-mode:vertical-lr;transform:rotate(180deg)}
+
+/* Tilt hint */
+#th{position:absolute;top:18px;left:50%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.18em;color:rgba(255,255,255,.2);opacity:0;transition:opacity 1.2s ease;text-align:center}
+
+/* ─── UNDERWATER DISTORTION FILTER ───────────────────────────
+   Applied to #vp (the 3D scene container) via SVG feTurbulence +
+   feDisplacementMap. JS animates both baseFrequency (idle ripple)
+   and scale (scroll-velocity warp).
+
+   TEXT PROTECTION: #hud is a sibling of #vp, not a descendant.
+   CSS filters only affect the element they're set on and its
+   subtree, so every HUD element — depth meter, zone labels,
+   hero title — is completely outside this filter and stays
+   pixel-perfect sharp at all distortion levels.               */
+#vp{filter:url(#ocean-warp)}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important}
+  #wld{transform:none!important}#stg{transform:none!important}
+  .el{opacity:1!important}
+  #vp{filter:none!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ UNDERWATER DISTORTION FILTER DEFINITION ═══════════════
+  This SVG is rendered at 0×0 — it only supplies the filter
+  primitive graph that #vp references via  filter:url(#ocean-warp).
+
+  feTurbulence  — Perlin noise source.
+    • type="turbulence"  gives the sharp refractive look of
+      light bending through choppy water (vs. fractalNoise which
+      is smoother but less "watery").
+    • baseFrequency is updated every RAF by JS:
+        idle  → slow sine oscillation (0.010–0.018 × 0.006–0.012)
+        scroll → higher values (up to ~0.045 × 0.029), creating
+               smaller, choppier turbulence that reads as
+               turbulent current vs. calm water.
+    • numOctaves="3"  — two detail levels beyond the base wave;
+      more = richer but more expensive.
+    • seed="4"  — fixed pattern shape; only frequency/scale move.
+
+  feDisplacementMap  — warps SourceGraphic using the noise map.
+    • scale is the displacement amplitude in pixels:
+        idle  ≈  12 px  (barely perceptible shimmer)
+        light ≈  35 px  (clear gentle ripple)
+        heavy ≈ 150 px  (full turbulent distortion)
+    • R-channel → horizontal warp, G-channel → vertical warp.
+
+  Filter region x/y/width/height extends 12 % beyond #vp bounds
+  so that pixels displaced inward from edges don't leave black
+  gaps at viewport margins.                                      -->
+<svg id="fsvg" xmlns="http://www.w3.org/2000/svg"
+     style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <filter id="ocean-warp"
+            x="-12%" y="-12%" width="124%" height="124%"
+            color-interpolation-filters="sRGB">
+      <feTurbulence id="ft"
+        type="turbulence"
+        baseFrequency="0.013 0.009"
+        numOctaves="3"
+        seed="4"
+        result="warpNoise"/>
+      <feDisplacementMap id="fd"
+        in="SourceGraphic"
+        in2="warpNoise"
+        scale="12"
+        xChannelSelector="R"
+        yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<canvas id="bgCanvas"></canvas>
+<div id="vgn"></div>
+
+<!-- ══ 3D VIEWPORT ══ -->
+<div id="vp"><div id="stg"><div id="wld">
+
+<!-- ════════ SURFACE  (element Z  -200 → -2200) ════════ -->
+
+<!-- Sun -->
+<div class="el" data-z="-220" style="left:70%;top:11%;transform:translateX(-50%) translateY(-50%) translateZ(-220px)">
+  <div style="width:114px;height:114px;border-radius:50%;background:radial-gradient(circle,rgba(255,242,160,.96) 0%,rgba(255,210,80,.52) 36%,transparent 68%);box-shadow:0 0 110px rgba(255,225,100,.28),0 0 220px rgba(255,190,60,.1)"></div>
+</div>
+
+<!-- Clouds – far -->
+<div class="el" data-z="-2200" style="left:12%;top:18%;transform:translateX(-50%) translateY(-50%) translateZ(-2200px)">
+  <svg width="268" height="72" viewBox="0 0 268 72"><ellipse cx="134" cy="54" rx="114" ry="42" fill="rgba(255,255,255,.62)"/><ellipse cx="92" cy="38" rx="72" ry="52" fill="rgba(255,255,255,.62)"/><ellipse cx="168" cy="33" rx="56" ry="42" fill="rgba(255,255,255,.58)"/><ellipse cx="218" cy="50" rx="42" ry="30" fill="rgba(255,255,255,.54)"/></svg>
+</div>
+<div class="el" data-z="-1900" style="left:70%;top:20%;transform:translateX(-50%) translateY(-50%) translateZ(-1900px)">
+  <svg width="220" height="58" viewBox="0 0 220 58"><ellipse cx="110" cy="42" rx="96" ry="34" fill="rgba(255,255,255,.6)"/><ellipse cx="78" cy="28" rx="62" ry="44" fill="rgba(255,255,255,.6)"/><ellipse cx="158" cy="26" rx="48" ry="34" fill="rgba(255,255,255,.55)"/></svg>
+</div>
+
+<!-- Clouds – mid -->
+<div class="el" data-z="-1500" style="left:40%;top:13%;transform:translateX(-50%) translateY(-50%) translateZ(-1500px)">
+  <svg width="322" height="80" viewBox="0 0 322 80"><ellipse cx="161" cy="60" rx="148" ry="48" fill="rgba(255,255,255,.76)"/><ellipse cx="112" cy="40" rx="96" ry="62" fill="rgba(255,255,255,.76)"/><ellipse cx="212" cy="37" rx="74" ry="52" fill="rgba(255,255,255,.7)"/><ellipse cx="280" cy="57" rx="40" ry="30" fill="rgba(255,255,255,.65)"/></svg>
+</div>
+
+<!-- Clouds – near -->
+<div class="el" data-z="-920" style="left:5%;top:32%;transform:translateX(-50%) translateY(-50%) translateZ(-920px)">
+  <svg width="194" height="52" viewBox="0 0 194 52"><ellipse cx="97" cy="38" rx="86" ry="30" fill="rgba(255,255,255,.72)"/><ellipse cx="68" cy="26" rx="58" ry="40" fill="rgba(255,255,255,.72)"/><ellipse cx="142" cy="23" rx="46" ry="32" fill="rgba(255,255,255,.66)"/></svg>
+</div>
+<div class="el" data-z="-720" style="left:88%;top:26%;transform:translateX(-50%) translateY(-50%) translateZ(-720px)">
+  <svg width="238" height="60" viewBox="0 0 238 60"><ellipse cx="119" cy="44" rx="110" ry="38" fill="rgba(255,255,255,.74)"/><ellipse cx="84" cy="28" rx="72" ry="48" fill="rgba(255,255,255,.74)"/><ellipse cx="172" cy="27" rx="60" ry="40" fill="rgba(255,255,255,.68)"/></svg>
+</div>
+
+<!-- Ocean surface wave -->
+<div class="el" data-z="-320" style="left:0;top:88%;transform:translateY(-50%) translateZ(-320px);width:100vw">
+  <svg viewBox="0 0 1440 106" style="width:100%;height:106px;display:block" preserveAspectRatio="none">
+    <path d="M0,42 C200,84 400,6 600,42 C800,78 1000,6 1200,42 C1310,62 1390,32 1440,42 L1440,106 L0,106 Z" fill="rgba(6,80,120,.52)"/>
+    <path d="M0,64 C300,22 600,98 900,67 C1100,46 1310,98 1440,67 L1440,106 L0,106 Z" fill="rgba(6,80,120,.4)"/>
+  </svg>
+</div>
+
+<!-- ════════ SUNLIT ZONE  (Z  -2500 → -5000) ════════ -->
+
+<!-- Full-screen light ray plane at tunnel entry -->
+<div class="el" data-z="-2700" style="left:0;top:0;transform:translateZ(-2700px);width:100vw;height:100vh;overflow:hidden">
+  <div style="position:absolute;top:-30%;left:10%;width:92px;height:160%;background:linear-gradient(to bottom,rgba(255,255,255,.11),transparent);transform:rotate(-13deg);animation:rp 3.2s ease-in-out infinite alternate;--ro:.11"></div>
+  <div style="position:absolute;top:-30%;left:28%;width:142px;height:160%;background:linear-gradient(to bottom,rgba(255,255,255,.09),transparent);transform:rotate(-4deg);animation:rp 4.1s ease-in-out infinite alternate .6s;--ro:.09"></div>
+  <div style="position:absolute;top:-30%;left:47%;width:106px;height:160%;background:linear-gradient(to bottom,rgba(255,255,255,.13),transparent);transform:rotate(5deg);animation:rp 3.6s ease-in-out infinite alternate 1.1s;--ro:.13"></div>
+  <div style="position:absolute;top:-30%;left:65%;width:82px;height:160%;background:linear-gradient(to bottom,rgba(255,255,255,.08),transparent);transform:rotate(14deg);animation:rp 5.2s ease-in-out infinite alternate .3s;--ro:.08"></div>
+  <div style="position:absolute;top:-30%;left:82%;width:116px;height:160%;background:linear-gradient(to bottom,rgba(255,255,255,.1),transparent);transform:rotate(-7deg);animation:rp 3.8s ease-in-out infinite alternate .9s;--ro:.1"></div>
+</div>
+
+<!-- Left kelp — 3 depths -->
+<div class="el" data-z="-2860" style="left:3%;top:0;transform:translateX(-50%) translateZ(-2860px)">
+  <svg width="58" height="100vh" viewBox="0 0 58 800" preserveAspectRatio="none"><path d="M29,800 C30,640 25,500 29,360 C33,220 27,100 29,0" stroke="rgba(18,108,52,.88)" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M42,800 C40,630 46,490 42,352 C38,214 44,94 42,0" stroke="rgba(18,108,52,.6)" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+</div>
+<div class="el" data-z="-3660" style="left:7%;top:0;transform:translateX(-50%) translateZ(-3660px)">
+  <svg width="52" height="100vh" viewBox="0 0 52 800" preserveAspectRatio="none"><path d="M26,800 C27,634 22,495 26,358 C30,222 24,98 26,0" stroke="rgba(18,108,52,.82)" stroke-width="4.5" fill="none" stroke-linecap="round"/></svg>
+</div>
+<div class="el" data-z="-4560" style="left:1%;top:0;transform:translateX(-50%) translateZ(-4560px)">
+  <svg width="62" height="100vh" viewBox="0 0 62 800" preserveAspectRatio="none"><path d="M31,800 C33,626 27,486 31,350 C35,214 29,92 31,0" stroke="rgba(18,108,52,.76)" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M47,800 C45,620 51,484 47,348 C43,212 49,90 47,0" stroke="rgba(18,108,52,.52)" stroke-width="2.8" fill="none" stroke-linecap="round"/></svg>
+</div>
+
+<!-- Right kelp — 3 depths -->
+<div class="el" data-z="-2960" style="left:97%;top:0;transform:translateX(-50%) translateZ(-2960px)">
+  <svg width="58" height="100vh" viewBox="0 0 58 800" preserveAspectRatio="none"><path d="M29,800 C27,636 33,496 29,360 C25,224 31,102 29,0" stroke="rgba(18,108,52,.86)" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M16,800 C18,630 14,492 18,356 C22,220 16,98 17,0" stroke="rgba(18,108,52,.58)" stroke-width="2.8" fill="none" stroke-linecap="round"/></svg>
+</div>
+<div class="el" data-z="-3960" style="left:93%;top:0;transform:translateX(-50%) translateZ(-3960px)">
+  <svg width="52" height="100vh" viewBox="0 0 52 800" preserveAspectRatio="none"><path d="M26,800 C25,628 30,490 26,354 C22,218 28,96 26,0" stroke="rgba(18,108,52,.8)" stroke-width="4.5" fill="none" stroke-linecap="round"/></svg>
+</div>
+<div class="el" data-z="-4660" style="left:99%;top:0;transform:translateX(-50%) translateZ(-4660px)">
+  <svg width="58" height="100vh" viewBox="0 0 58 800" preserveAspectRatio="none"><path d="M29,800 C30,624 25,484 29,348 C33,212 27,90 29,0" stroke="rgba(18,108,52,.72)" stroke-width="4.8" fill="none" stroke-linecap="round"/></svg>
+</div>
+
+<!-- Fish school A -->
+<div class="el" data-z="-3160" style="left:46%;top:40%;transform:translateX(-50%) translateY(-50%) translateZ(-3160px)">
+  <svg width="294" height="168" viewBox="0 0 294 168">
+    <g fill="rgba(210,240,255,.62)" opacity=".9">
+      <ellipse cx="84" cy="64" rx="28" ry="12"/><polygon points="58,64 44,56 44,72"/>
+      <ellipse cx="114" cy="44" rx="22" ry="10"/><polygon points="93,44 81,37 81,51"/>
+      <ellipse cx="130" cy="82" rx="24" ry="11"/><polygon points="107,82 94,75 94,89"/>
+      <ellipse cx="98" cy="98" rx="19" ry="8.5"/><polygon points="80,98 69,92 69,104"/>
+      <ellipse cx="166" cy="58" rx="26" ry="11.5"/><polygon points="141,58 128,51 128,65"/>
+      <ellipse cx="188" cy="78" rx="21" ry="9.5"/><polygon points="168,78 156,72 156,84"/>
+      <ellipse cx="210" cy="42" rx="23" ry="10.5"/><polygon points="188,42 176,36 176,48"/>
+    </g>
+  </svg>
+</div>
+
+<!-- Fish school B -->
+<div class="el" data-z="-3960" style="left:22%;top:53%;transform:translateX(-50%) translateY(-50%) translateZ(-3960px)">
+  <svg width="230" height="126" viewBox="0 0 230 126">
+    <g fill="rgba(200,238,255,.58)" opacity=".88">
+      <ellipse cx="74" cy="58" rx="24" ry="11"/><polygon points="51,58 39,51 39,65"/>
+      <ellipse cx="100" cy="41" rx="19" ry="9"/><polygon points="82,41 71,35 71,47"/>
+      <ellipse cx="114" cy="75" rx="22" ry="10"/><polygon points="93,75 81,69 81,81"/>
+      <ellipse cx="158" cy="51" rx="27" ry="12"/><polygon points="132,51 119,44 119,58"/>
+      <ellipse cx="182" cy="71" rx="20" ry="9"/><polygon points="163,71 152,65 152,77"/>
+    </g>
+  </svg>
+</div>
+
+<!-- Fish school C -->
+<div class="el" data-z="-4660" style="left:66%;top:46%;transform:translateX(-50%) translateY(-50%) translateZ(-4660px)">
+  <svg width="252" height="136" viewBox="0 0 252 136">
+    <g fill="rgba(215,245,255,.55)" opacity=".85">
+      <ellipse cx="94" cy="63" rx="30" ry="13.5"/><polygon points="66,63 52,55 52,71"/>
+      <ellipse cx="126" cy="43" rx="24" ry="11"/><polygon points="103,43 91,36 91,50"/>
+      <ellipse cx="144" cy="83" rx="27" ry="12"/><polygon points="118,83 106,76 106,90"/>
+      <ellipse cx="180" cy="53" rx="22" ry="10"/><polygon points="159,53 147,47 147,59"/>
+      <ellipse cx="202" cy="73" rx="24" ry="11"/><polygon points="179,73 167,67 167,79"/>
+    </g>
+  </svg>
+</div>
+
+<!-- Coral left -->
+<div class="el" data-z="-3360" style="left:8%;top:88%;transform:translateX(-50%) translateY(-50%) translateZ(-3360px)">
+  <svg width="166" height="186" viewBox="0 0 166 186">
+    <path d="M83,186 L83,124 M83,150 L64,112 M83,139 L103,109 M64,112 L54,86 M64,112 L72,83 M103,109 L111,82 M103,109 L98,80" stroke="#d04040" stroke-width="5" stroke-linecap="round" fill="none" opacity=".9"/>
+    <path d="M53,186 L53,140 M53,160 L39,130 M53,150 L68,125" stroke="#e07030" stroke-width="4" stroke-linecap="round" fill="none" opacity=".76"/>
+    <path d="M117,186 L117,133 M117,156 L103,122 M117,145 L133,120" stroke="#d04040" stroke-width="4.5" stroke-linecap="round" fill="none" opacity=".82"/>
+    <ellipse cx="83" cy="184" rx="27" ry="6" fill="rgba(60,30,18,.72)"/>
+  </svg>
+</div>
+
+<!-- Coral centre -->
+<div class="el" data-z="-4160" style="left:52%;top:92%;transform:translateX(-50%) translateY(-50%) translateZ(-4160px)">
+  <svg width="186" height="206" viewBox="0 0 186 206">
+    <path d="M93,206 L93,134 M93,160 L73,122 M93,149 L115,119 M73,122 L61,94 M73,122 L81,90 M115,119 L125,91 M115,119 L109,88" stroke="#c03838" stroke-width="5.5" stroke-linecap="round" fill="none" opacity=".92"/>
+    <path d="M135,206 L135,153 M135,174 L121,145 M135,164 L151,140" stroke="#ef7030" stroke-width="4.5" stroke-linecap="round" fill="none" opacity=".78"/>
+    <ellipse cx="93" cy="204" rx="29" ry="6" fill="rgba(55,28,15,.72)"/>
+  </svg>
+</div>
+
+<!-- Coral right -->
+<div class="el" data-z="-4860" style="left:82%;top:86%;transform:translateX(-50%) translateY(-50%) translateZ(-4860px)">
+  <svg width="160" height="178" viewBox="0 0 160 178">
+    <path d="M80,178 L80,116 M80,142 L62,106 M80,131 L100,102 M62,106 L52,81 M100,102 L108,76" stroke="#d04545" stroke-width="5" stroke-linecap="round" fill="none" opacity=".86"/>
+    <ellipse cx="80" cy="176" rx="23" ry="5" fill="rgba(58,28,16,.72)"/>
+  </svg>
+</div>
+
+<!-- Bubble clusters at 3 Z depths -->
+<div class="el" data-z="-2860" style="left:30%;top:60%;transform:translateX(-50%) translateY(-50%) translateZ(-2860px);width:260px;height:280px" id="b1"></div>
+<div class="el" data-z="-3560" style="left:55%;top:68%;transform:translateX(-50%) translateY(-50%) translateZ(-3560px);width:220px;height:240px" id="b2"></div>
+<div class="el" data-z="-4260" style="left:42%;top:64%;transform:translateX(-50%) translateY(-50%) translateZ(-4260px);width:240px;height:260px" id="b3"></div>
+
+<!-- ════════ TWILIGHT ZONE  (Z  -5000 → -7500) ════════ -->
+
+<!-- Jellyfish 1 — large cyan -->
+<div class="el" data-z="-5360" style="left:60%;top:30%;transform:translateX(-50%) translateY(-50%) translateZ(-5360px)">
+  <svg style="filter:drop-shadow(0 0 16px rgba(0,230,255,.52));animation:jfl 5.2s ease-in-out infinite alternate" width="176" height="236" viewBox="0 0 176 236">
+    <ellipse cx="88" cy="64" rx="70" ry="58" fill="rgba(0,230,255,.07)" stroke="rgba(0,230,255,.22)" stroke-width="1.8"/>
+    <ellipse cx="88" cy="50" rx="48" ry="38" fill="rgba(0,230,255,.05)"/>
+    <ellipse cx="74" cy="44" rx="17" ry="11" fill="rgba(180,255,255,.06)"/>
+    <path d="M38,118 Q30,155 34,192 Q31,214 38,236" stroke="rgba(0,230,255,.27)" stroke-width="1.3" fill="none"/>
+    <path d="M59,120 Q54,159 58,196 Q55,218 60,236" stroke="rgba(0,230,255,.22)" stroke-width="1" fill="none"/>
+    <path d="M88,121 Q85,160 88,197 Q86,219 88,236" stroke="rgba(0,230,255,.29)" stroke-width="1.4" fill="none"/>
+    <path d="M117,120 Q122,154 118,190 Q121,212 116,236" stroke="rgba(0,230,255,.22)" stroke-width="1" fill="none"/>
+    <path d="M138,118 Q144,150 140,186 Q143,208 138,236" stroke="rgba(0,230,255,.27)" stroke-width="1.3" fill="none"/>
+  </svg>
+</div>
+
+<!-- Jellyfish 2 — violet -->
+<div class="el" data-z="-5960" style="left:22%;top:57%;transform:translateX(-50%) translateY(-50%) translateZ(-5960px)">
+  <svg style="filter:drop-shadow(0 0 12px rgba(150,70,255,.55));animation:jfl 3.9s ease-in-out infinite alternate .85s" width="92" height="128" viewBox="0 0 92 128">
+    <ellipse cx="46" cy="33" rx="37" ry="29" fill="rgba(150,70,255,.09)" stroke="rgba(150,70,255,.3)" stroke-width="1.4"/>
+    <ellipse cx="46" cy="26" rx="23" ry="19" fill="rgba(150,70,255,.06)"/>
+    <path d="M20,59 Q15,78 18,103" stroke="rgba(150,70,255,.34)" stroke-width="1" fill="none"/>
+    <path d="M33,61 Q30,81 33,106" stroke="rgba(150,70,255,.27)" stroke-width=".9" fill="none"/>
+    <path d="M46,62 Q45,82 46,109" stroke="rgba(150,70,255,.37)" stroke-width="1.1" fill="none"/>
+    <path d="M59,61 Q62,79 59,104" stroke="rgba(150,70,255,.27)" stroke-width=".9" fill="none"/>
+    <path d="M72,59 Q76,76 73,101" stroke="rgba(150,70,255,.34)" stroke-width="1" fill="none"/>
+  </svg>
+</div>
+
+<!-- Jellyfish 3 — blue -->
+<div class="el" data-z="-6660" style="left:75%;top:65%;transform:translateX(-50%) translateY(-50%) translateZ(-6660px)">
+  <svg style="filter:drop-shadow(0 0 13px rgba(35,170,255,.48));animation:jfl 4.6s ease-in-out infinite alternate .42s" width="114" height="154" viewBox="0 0 114 154">
+    <ellipse cx="57" cy="41" rx="46" ry="37" fill="rgba(35,170,255,.08)" stroke="rgba(35,170,255,.22)" stroke-width="1.5"/>
+    <ellipse cx="57" cy="32" rx="30" ry="24" fill="rgba(35,170,255,.05)"/>
+    <path d="M22,75 Q17,100 21,130" stroke="rgba(35,170,255,.3)" stroke-width="1.1" fill="none"/>
+    <path d="M39,78 Q36,104 39,134" stroke="rgba(35,170,255,.24)" stroke-width="1" fill="none"/>
+    <path d="M57,79 Q56,105 57,136" stroke="rgba(35,170,255,.31)" stroke-width="1.2" fill="none"/>
+    <path d="M75,78 Q78,102 75,132" stroke="rgba(35,170,255,.24)" stroke-width="1" fill="none"/>
+    <path d="M92,75 Q97,98 93,128" stroke="rgba(35,170,255,.3)" stroke-width="1.1" fill="none"/>
+  </svg>
+</div>
+
+<!-- Jellyfish 4 — small cyan -->
+<div class="el" data-z="-7160" style="left:38%;top:25%;transform:translateX(-50%) translateY(-50%) translateZ(-7160px)">
+  <svg style="filter:drop-shadow(0 0 10px rgba(0,220,255,.48));animation:jfl 4.1s ease-in-out infinite alternate 1.2s" width="76" height="106" viewBox="0 0 76 106">
+    <ellipse cx="38" cy="28" rx="32" ry="26" fill="rgba(0,220,255,.09)" stroke="rgba(0,220,255,.28)" stroke-width="1.3"/>
+    <path d="M14,51 Q10,70 13,94" stroke="rgba(0,220,255,.31)" stroke-width="1" fill="none"/>
+    <path d="M27,53 Q24,74 27,98" stroke="rgba(0,220,255,.25)" stroke-width=".9" fill="none"/>
+    <path d="M38,54 Q37,75 38,100" stroke="rgba(0,220,255,.33)" stroke-width="1.1" fill="none"/>
+    <path d="M49,53 Q52,72 49,96" stroke="rgba(0,220,255,.25)" stroke-width=".9" fill="none"/>
+    <path d="M62,51 Q66,69 63,93" stroke="rgba(0,220,255,.31)" stroke-width="1" fill="none"/>
+  </svg>
+</div>
+
+<!-- Deep-sea fish silhouettes -->
+<div class="el" data-z="-5660" style="left:20%;top:48%;transform:translateX(-50%) translateY(-50%) translateZ(-5660px)">
+  <svg width="190" height="64" viewBox="0 0 190 64"><g fill="rgba(0,26,64,.88)" opacity=".65"><ellipse cx="95" cy="32" rx="72" ry="20"/><polygon points="25,32 8,22 8,42"/></g></svg>
+</div>
+<div class="el" data-z="-6960" style="left:72%;top:45%;transform:translateX(-50%) translateY(-50%) translateZ(-6960px)">
+  <svg width="164" height="56" viewBox="0 0 164 56"><g fill="rgba(0,26,64,.88)" opacity=".62"><ellipse cx="82" cy="28" rx="62" ry="18"/><polygon points="22,28 6,19 6,37"/></g></svg>
+</div>
+
+<!-- Twilight bioluminescent particle planes -->
+<div class="el" data-z="-5260" style="left:50%;top:50%;transform:translateX(-50%) translateY(-50%) translateZ(-5260px);width:130vw;height:130vh" id="tw-a"></div>
+<div class="el" data-z="-6260" style="left:50%;top:50%;transform:translateX(-50%) translateY(-50%) translateZ(-6260px);width:130vw;height:130vh" id="tw-b"></div>
+<div class="el" data-z="-7260" style="left:50%;top:50%;transform:translateX(-50%) translateY(-50%) translateZ(-7260px);width:130vw;height:130vh" id="tw-c"></div>
+
+<!-- ════════ ABYSS  (Z  -7500 → -10000) ════════ -->
+
+<!-- Anglerfish -->
+<div class="el" data-z="-8260" style="left:58%;top:54%;transform:translateX(-50%) translateY(-50%) translateZ(-8260px)">
+  <svg width="352" height="246" viewBox="0 0 352 246" style="opacity:.93">
+    <ellipse cx="212" cy="154" rx="126" ry="82" fill="rgba(5,9,20,.96)" stroke="rgba(18,38,74,.52)" stroke-width="1"/>
+    <path d="M91,147 Q81,160 85,172 Q98,180 113,167" fill="rgba(3,6,14,.9)" stroke="rgba(14,32,62,.5)" stroke-width=".8"/>
+    <path d="M98,150 L88,165 M106,147 L101,163 M114,146 L116,161 M122,147 L126,160" stroke="rgba(190,210,255,.35)" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="126" cy="135" r="15.5" fill="rgba(2,4,12,.96)" stroke="rgba(18,38,74,.62)" stroke-width="1"/>
+    <circle cx="126" cy="135" r="7.5" fill="rgba(0,0,0,.98)"/>
+    <circle cx="123" cy="132" r="2.5" fill="rgba(255,255,255,.12)"/>
+    <path d="M210,80 Q234,50 278,63 Q300,71 310,86" stroke="rgba(10,24,54,.88)" stroke-width="9.5" fill="none" stroke-linecap="round"/>
+    <path d="M142,100 Q136,68 153,37 Q162,19 169,23" stroke="rgba(28,58,42,.88)" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+    <circle cx="169" cy="23" r="10.5" fill="rgba(0,255,155,.9)" style="animation:lure 1.65s ease-in-out infinite alternate"/>
+    <circle cx="169" cy="23" r="5" fill="rgba(175,255,220,.98)"/>
+    <path d="M154,168 Q131,188 110,183 Q100,178 105,167" fill="rgba(5,9,20,.9)" stroke="rgba(16,34,66,.5)" stroke-width=".8"/>
+    <path d="M330,132 Q358,104 362,156 Q358,208 330,180" fill="rgba(4,7,18,.96)" stroke="rgba(14,32,64,.5)" stroke-width=".8"/>
+    <path d="M167,119 Q196,113 226,116 Q257,120 284,126" stroke="rgba(24,46,84,.28)" stroke-width=".9" fill="none"/>
+    <path d="M155,139 Q186,132 216,136 Q248,140 284,147" stroke="rgba(24,46,84,.22)" stroke-width=".9" fill="none"/>
+  </svg>
+</div>
+
+<!-- Hydrothermal vent left -->
+<div class="el" data-z="-9060" style="left:30%;top:94%;transform:translateX(-50%) translateY(-50%) translateZ(-9060px)">
+  <div style="width:232px;height:272px;background:radial-gradient(ellipse 55% 88% at 50% 100%,rgba(255,85,15,.14),transparent);position:relative">
+    <svg width="232" height="132" viewBox="0 0 232 132" style="position:absolute;bottom:0">
+      <path d="M85,132 L81,74 L77,64 L85,61 L93,64 L90,74 Z" fill="rgba(46,27,17,.93)"/>
+      <path d="M103,132 L100,80 L98,72 L104,70 L110,72 L108,80 Z" fill="rgba(38,22,13,.93)"/>
+      <path d="M119,132 L117,86 L115,79 L119,77 L123,79 L121,86 Z" fill="rgba(34,20,11,.93)"/>
+    </svg>
+  </div>
+</div>
+
+<!-- Hydrothermal vent right -->
+<div class="el" data-z="-9560" style="left:66%;top:95%;transform:translateX(-50%) translateY(-50%) translateZ(-9560px)">
+  <div style="width:190px;height:234px;background:radial-gradient(ellipse 55% 88% at 50% 100%,rgba(255,65,12,.1),transparent);position:relative">
+    <svg width="190" height="112" viewBox="0 0 190 112" style="position:absolute;bottom:0">
+      <path d="M67,112 L63,60 L59,50 L67,47 L75,50 L72,60 Z" fill="rgba(44,25,15,.93)"/>
+      <path d="M85,112 L82,68 L80,60 L86,58 L92,60 L90,68 Z" fill="rgba(36,21,12,.93)"/>
+    </svg>
+  </div>
+</div>
+
+<!-- Abyss particle planes -->
+<div class="el" data-z="-7860" style="left:50%;top:50%;transform:translateX(-50%) translateY(-50%) translateZ(-7860px);width:140vw;height:140vh" id="ab-a"></div>
+<div class="el" data-z="-8860" style="left:50%;top:50%;transform:translateX(-50%) translateY(-50%) translateZ(-8860px);width:140vw;height:140vh" id="ab-b"></div>
+<div class="el" data-z="-9710" style="left:50%;top:50%;transform:translateX(-50%) translateY(-50%) translateZ(-9710px);width:140vw;height:140vh" id="ab-c"></div>
+
+</div></div></div><!-- wld / stg / vp -->
+
+<!-- ══ HUD ══ -->
+<div id="hud">
+  <div id="entry">
+    <h1 class="ht">Dive</h1>
+    <p class="hs">An exploration of the ocean's hidden depths</p>
+    <div class="sh">
+      <svg width="16" height="22" viewBox="0 0 16 22" fill="none" aria-hidden="true">
+        <path d="M8 2v16M8 18L3 12M8 18l5-6" stroke="rgba(255,255,255,.38)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      SCROLL TO FLY FORWARD
+    </div>
+  </div>
+
+  <div id="zl">
+    <div class="ze" id="ze"></div>
+    <div class="zt" id="zt"></div>
+    <div class="zd" id="zd"></div>
+  </div>
+
+  <div class="dm">
+    <div class="dv" id="dv">Surface</div>
+    <div class="dt"><div class="df" id="df"></div><div class="dd" id="dd"></div></div>
+    <div class="dl">depth</div>
+  </div>
+
+  <div id="th">MOVE MOUSE TO TILT</div>
+</div>
+
+<script>
+const MAX_Z = 10000;
+const $ = id => document.getElementById(id);
+const wld = $('wld'), stg = $('stg'), vgn = $('vgn');
+const entry = $('entry'), zl = $('zl'), th = $('th');
+
+// ─── BACKGROUND CANVAS SETUP ─────────────────────────────────────
+// A fixed full-viewport <canvas> replaces the old flat CSS gradient
+// div. It's painted fresh every RAF frame inside drawFrame(), driven
+// by the same `wz` (world-Z / scroll-depth) value that drives the
+// 3D tunnel — so the two layers always stay perfectly synced.
+const canvas = $('bgCanvas');
+const gtx    = canvas.getContext('2d');
+let dpr = 1, vw = innerWidth, vh = innerHeight;
+
+function resizeCanvas() {
+  dpr = Math.min(window.devicePixelRatio || 1, 1.5); // cap for perf
+  vw  = innerWidth;  vh = innerHeight;
+  canvas.width  = Math.round(vw * dpr);
+  canvas.height = Math.round(vh * dpr);
+  canvas.style.width  = vw + 'px';
+  canvas.style.height = vh + 'px';
+  // From here on we draw in CSS-pixel coordinates; this transform
+  // bakes the device-pixel-ratio scale in once so fillRect(0,0,vw,vh)
+  // always covers exactly the visible viewport at native sharpness.
+  gtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Raw pixel cursor position (separate from the -1..1 normalised
+// mTX/mTY used for the 3D tilt). This drives the canvas "torch".
+let mPX = vw / 2, mPY = vh / 2;   // latest raw pointer position
+let lPX = mPX,    lPY = mPY;      // smoothed / lagged light position
+
+// Cache element z-values once
+const els = [...document.querySelectorAll('.el')].map(e => ({ e, z: +e.dataset.z }));
+
+// Mouse state
+let mTX = 0, mTY = 0, mCX = 0, mCY = 0, mUsed = false;
+
+// ─── DISTORTION FILTER STATE ────────────────────────────────────
+// SVG filter primitive references — mutated every animation frame.
+const ft = document.getElementById('ft'); // <feTurbulence>
+const fd = document.getElementById('fd'); // <feDisplacementMap>
+
+// Scroll-velocity tracking.
+// dVelSmooth is an exponentially-weighted moving average of the
+// absolute per-frame scroll delta (px/frame at 60 fps).
+// This gives instant spike on scroll start and a satisfying slow
+// return to zero when the user stops.
+let dVelSmooth = 0;
+let dLastY     = window.scrollY; // scrollY sampled the previous frame
+
+// Displacement scale state — we chase dScaleTarget each frame
+// with asymmetric easing (fast up, slow decay).
+let dScale     = 12;   // current rendered scale (px)
+let dScaleTarget = 12; // target scale driven by velocity
+
+// Zone definitions
+const zones = [
+  { s:    0, end:2400, eye:'Surface',           ti:'Open water',          d:'0 m'              },
+  { s: 2400, end:5100, eye:'The Sunlit Zone',    ti:'Light & Abundance',   d:'0 – 200 m'        },
+  { s: 5100, end:7600, eye:'The Twilight Zone',  ti:'Where Light Fades',   d:'200 – 1,000 m'    },
+  { s: 7600, end:10000,eye:'The Midnight Zone',  ti:'The Abyss',           d:'1,000 – 4,000 m+' },
+];
+
+// ─── CANVAS CAUSTIC BACKGROUND ───────────────────────────────────
+//
+// Three layers are composited every frame, back to front:
+//   1. Base fill      — depth-interpolated flat colour (was the old
+//                        CSS gradient; now painted per-pixel here).
+//   2. Caustic shimmer — soft "lighter"-blended blobs that trace a
+//                        Lissajous-style path. Their phase is a
+//                        DETERMINISTIC function of wz (scroll depth)
+//                        only — no independent real-time term — so
+//                        scrolling backward retraces the exact same
+//                        visual states in reverse. Scrolling deeper
+//                        both increases the phase-per-pixel rate
+//                        (patterns visibly speed up) and dims/shrinks
+//                        the blobs (patterns visibly darken).
+//   3. Magnetic torch  — a radial "lighter"-blended light centred on
+//                        a lagged cursor position, independent of
+//                        scroll — the one live, mouse-only layer.
+
+// Base fill colour stops [worldZ, [r,g,b]] — unchanged palette from
+// the original gradient, now sampled in JS per frame instead of CSS.
+const bgS = [
+  [0,    [192,232,248]],
+  [1800, [42,149,200]],
+  [3200, [8,112,160]],
+  [5200, [6,72,112]],
+  [7200, [2,28,56]],
+  [10000,[2,4,8]],
+];
+
+// Caustic tint stops — shifts from bright sunlit white-cyan down to
+// a dim bioluminescent green-teal in the abyss.
+const causticS = [
+  [0,    [255,255,255]],
+  [1800, [190,240,255]],
+  [3200, [120,222,255]],
+  [5200, [55,205,225]],
+  [7200, [35,235,185]],
+  [10000,[15,165,130]],
+];
+
+function lerpStops(stops, wz) {
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [az,ac] = stops[i], [bz,bc] = stops[i+1];
+    if (wz >= az && wz <= bz) {
+      const t = (wz-az)/(bz-az);
+      return [
+        Math.round(ac[0]+(bc[0]-ac[0])*t),
+        Math.round(ac[1]+(bc[1]-ac[1])*t),
+        Math.round(ac[2]+(bc[2]-ac[2])*t),
+      ];
+    }
+  }
+  return stops[stops.length-1][1];
+}
+
+function drawCaustics(wz, depthP, tint) {
+  // Phase is purely a function of wz (+ a depth-scaled rate), so the
+  // exact same scroll position always reproduces the exact same
+  // pattern — reversing scroll direction reverses the animation
+  // perfectly, with no drift or desync.
+  const rate  = 0.9 + depthP * 3.4;      // deeper = faster-changing pattern
+  const phase = wz * 0.0026 * rate;
+  const [r,g,b] = tint;
+
+  gtx.globalCompositeOperation = 'lighter';
+  const n = 5;
+  for (let i = 0; i < n; i++) {
+    const t  = phase + i * 1.7;
+    const x  = (0.5 + 0.38*Math.sin(t*0.72 + i*1.1))  * vw;
+    const y  = (0.5 + 0.34*Math.cos(t*0.51 + i*1.9))  * vh;
+    const rad = (0.24 + 0.09*Math.sin(t*1.05 + i))    * Math.max(vw,vh) * (1 - depthP*0.35);
+    const op  = (0.11 + 0.05*Math.sin(t*0.88 + i*2.2))* (1 - depthP*0.6); // dims with depth
+    const grd = gtx.createRadialGradient(x,y,0,x,y,Math.max(rad,1));
+    grd.addColorStop(0, `rgba(${r},${g},${b},${Math.max(op,0).toFixed(3)})`);
+    grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    gtx.fillStyle = grd;
+    gtx.fillRect(0,0,vw,vh);
+  }
+  gtx.globalCompositeOperation = 'source-over';
+}
+
+function drawTorch(x, y, depthP) {
+  // The magnetic cursor light — brighter and slightly wider in the
+  // dark abyss (like a torch cutting through deep water), subtler
+  // near the sunlit surface where ambient light already does the work.
+  const rad = 230 + depthP*110;
+  const op  = 0.05 + depthP*0.22;
+  const grd = gtx.createRadialGradient(x,y,0,x,y,rad);
+  grd.addColorStop(0,   `rgba(255,255,255,${op.toFixed(3)})`);
+  grd.addColorStop(0.45,`rgba(205,238,255,${(op*0.45).toFixed(3)})`);
+  grd.addColorStop(1,   'rgba(205,238,255,0)');
+  gtx.globalCompositeOperation = 'lighter';
+  gtx.fillStyle = grd;
+  gtx.fillRect(0,0,vw,vh);
+  gtx.globalCompositeOperation = 'source-over';
+}
+
+function drawFrame(wz) {
+  const depthP = Math.min(wz / MAX_Z, 1);
+
+  gtx.fillStyle = `rgb(${lerpStops(bgS, wz).join(',')})`;
+  gtx.fillRect(0, 0, vw, vh);
+
+  drawCaustics(wz, depthP, lerpStops(causticS, wz));
+  drawTorch(lPX, lPY, depthP);
+}
+
+window.addEventListener('mousemove', e => {
+  mTX = (e.clientX/innerWidth  - .5)*2;
+  mTY = (e.clientY/innerHeight - .5)*2;
+  mPX = e.clientX;   // raw pixel position for the canvas light source
+  mPY = e.clientY;
+  if (!mUsed) { mUsed = true; th.style.opacity = '0'; }
+}, {passive:true});
+
+let lastZone = null;
+
+function tick() {
+  const maxS = document.documentElement.scrollHeight - innerHeight;
+  const wz   = (scrollY / Math.max(maxS,1)) * MAX_Z;
+
+  // Smooth mouse lerp (3D tilt)
+  mCX += (mTX-mCX)*.07;
+  mCY += (mTY-mCY)*.07;
+
+  // Smooth torch-light lag — snappier than the tilt (.15 vs .07) so
+  // the "magnetic" light feels responsive while still trailing the
+  // raw cursor with a touch of physical weight.
+  lPX += (mPX-lPX)*.15;
+  lPY += (mPY-lPY)*.15;
+
+  // 3D transforms
+  // Stage: mouse-follow rotation gives the "whole ocean tilts" feel
+  stg.style.transform = `rotateX(${(-mCY*3.5).toFixed(3)}deg) rotateY(${(mCX*5.5).toFixed(3)}deg)`;
+  // World: scroll drives Z-axis flight — you are physically flying forward
+  wld.style.transform  = `translateZ(${wz.toFixed(1)}px)`;
+
+  // Background canvas: base colour + scroll-scrubbed caustics + torch
+  drawFrame(wz);
+
+  // Vignette: grows darker as you descend
+  const vp = Math.min(wz/7500, 1);
+  vgn.style.background = `radial-gradient(ellipse 68% 68% at 50% 50%,transparent 22%,rgba(0,0,0,${(vp*.62).toFixed(3)}) 100%)`;
+
+  // Per-element opacity based on effective Z (distance to camera)
+  // effectiveZ = el.baseZ + worldZ
+  //   negative = still ahead of camera (visible)
+  //   zero     = at camera
+  //   positive = behind camera (clip/fade)
+  for (const {e,z} of els) {
+    const eff = z + wz;
+    let op = 1;
+    // Far: fade in as element emerges from distance
+    if (eff < -4500) op = Math.max(0, 1-(-eff-4500)/2200);
+    // Near: scale up then fade out before passing camera
+    if (eff > -300)  op = Math.min(op, Math.max(0, (-eff-25)/275));
+    // Behind: fully invisible
+    if (eff > 0)     op = 0;
+    e.style.opacity = op <= 0 ? '0' : op >= 1 ? '' : op.toFixed(3);
+  }
+
+  // Depth meter
+  const p  = Math.min(wz/MAX_Z, 1);
+  const dm = Math.round(p*4000);
+  $('df').style.height = (p*100)+'%';
+  $('dd').style.top    = (p*100)+'%';
+  $('dv').textContent  = dm < 5 ? 'Surface' : dm+'m';
+
+  // Entry screen (hero)
+  const ef = Math.max(0, 1-wz/750);
+  entry.style.opacity = ef;
+  entry.style.pointerEvents = ef < .05 ? 'none' : '';
+
+  // Tilt hint (appears briefly mid-surface, disappears on mouse move)
+  if (!mUsed && wz > 200 && wz < 1800) th.style.opacity = '1';
+
+  // Zone label
+  const zone = zones.find(z => wz >= z.s && wz < z.end);
+  if (zone && wz > 500) {
+    const t  = (wz - zone.s)/(zone.end - zone.s);
+    const lop = t < .12 ? t/.12 : t > .84 ? (1-t)/.16 : 1;
+    if (zone !== lastZone) {
+      $('ze').textContent = zone.eye;
+      $('zt').textContent = zone.ti;
+      $('zd').textContent = zone.d;
+      lastZone = zone;
+    }
+    zl.style.opacity = lop.toFixed(3);
+  } else {
+    zl.style.opacity = '0';
+  }
+
+  // ─── UNDERWATER DISTORTION UPDATE ────────────────────────────
+  // Called once per animation frame inside tick() so distortion
+  // and all other scene updates stay perfectly in sync.
+
+  const now = performance.now() / 1000; // seconds since page load
+
+  // ① Measure per-frame scroll velocity.
+  //    We diff scrollY between frames rather than using a scroll
+  //    event because scroll events are async and can batch; reading
+  //    scrollY here gives us the true per-frame delta.
+  const frameDelta = Math.abs(window.scrollY - dLastY);
+  dLastY = window.scrollY;
+
+  // ② Exponential smoothing.
+  //    α=0.12 weights the new delta lightly → spike is absorbed
+  //    quickly but the tail decays slowly (factor 0.88 per frame).
+  //    At 60 fps, dVelSmooth halves roughly every 5–6 frames after
+  //    scrolling stops, giving a ~0.5 s perceptible tail.
+  dVelSmooth = dVelSmooth * 0.88 + frameDelta * 0.12;
+
+  // ③ Map smoothed velocity → target displacement scale.
+  //    idle (vel ≈ 0)   →  scale ≈  12 px  (barely perceptible shimmer)
+  //    gentle (vel ≈ 8) →  scale ≈  38 px  (clear ripple ring)
+  //    fast   (vel ≈ 45)→  scale ≈ 150 px  (heavy turbulent warp)
+  dScaleTarget = 12 + Math.min(dVelSmooth * 3.2, 138);
+
+  // ④ Asymmetric easing toward target.
+  //    Rising  (scroll starts): 28 % per frame → near-instant response.
+  //    Falling (scroll stops) :  3 % per frame → smooth ~2 s tail-off.
+  //    This makes the warp feel reactive on input yet elegant at rest.
+  const chaseRate = dScaleTarget > dScale ? 0.28 : 0.032;
+  dScale += (dScaleTarget - dScale) * chaseRate;
+
+  // ⑤ Velocity factor 0→1 — also drives baseFrequency character.
+  //    Higher velocity = higher frequency = choppier, smaller
+  //    turbulence cells that read as fast current rather than calm swell.
+  const vf = Math.min(dVelSmooth / 45, 1);
+
+  // ⑥ Animate baseFrequency for the idle ripple.
+  //    Two out-of-phase sine waves on X and Y axes create a
+  //    constantly-shifting noise map that reads as drifting water
+  //    caustics even when the user isn't scrolling.
+  //    Scroll velocity adds to the base frequency, compressing
+  //    the pattern into the fine-grained turbulence of disturbed water.
+  const bfx = (0.013 + Math.sin(now * 0.38) * 0.005) + vf * 0.034;
+  const bfy = (0.009 + Math.cos(now * 0.27) * 0.003) + vf * 0.022;
+
+  ft.setAttribute('baseFrequency', `${bfx.toFixed(5)} ${bfy.toFixed(5)}`);
+  fd.setAttribute('scale',          dScale.toFixed(2));
+  // ──────────────────────────────────────────────────────────────
+
+  requestAnimationFrame(tick);
+}
+
+// Bubble spawner
+function spawnBub(id, n) {
+  const c = $(id); if (!c) return;
+  for (let i = 0; i < n; i++) {
+    const b = document.createElement('div'), s = Math.random()*14+4;
+    b.style.cssText = `position:absolute;width:${s}px;height:${s}px;border-radius:50%;`+
+      `border:1px solid rgba(255,255,255,${.14+Math.random()*.24});`+
+      `background:rgba(255,255,255,${.02+Math.random()*.04});`+
+      `left:${Math.random()*100}%;top:${Math.random()*100}%;`+
+      `animation:rb ${3+Math.random()*5}s ease-in ${-Math.random()*8}s infinite;`;
+    c.appendChild(b);
+  }
+}
+
+// Bioluminescent particle spawner
+function spawnPts(id, n, r, g, b) {
+  const c = $(id); if (!c) return;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('div'), s = Math.random()*2.8+.5, op = Math.random()*.45+.1;
+    p.style.cssText = `position:absolute;width:${s}px;height:${s}px;border-radius:50%;`+
+      `background:rgba(${r},${g},${b},${op});box-shadow:0 0 ${s*3}px rgba(${r},${g},${b},.42);`+
+      `left:${Math.random()*100}%;top:${Math.random()*100}%;`+
+      `--dx:${(Math.random()-.5)*80}px;--dy:${(Math.random()-.5)*80}px;`+
+      `animation:drift ${5+Math.random()*10}s ease-in-out ${-Math.random()*14}s infinite alternate;`;
+    c.appendChild(p);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  spawnBub('b1',9); spawnBub('b2',7); spawnBub('b3',8);
+  spawnPts('tw-a',36,0,210,255); spawnPts('tw-b',30,0,190,255); spawnPts('tw-c',28,80,150,255);
+  spawnPts('ab-a',52,0,245,155); spawnPts('ab-b',46,0,220,130); spawnPts('ab-c',58,0,255,175);
+  requestAnimationFrame(tick);
+});
+</script>
+</body>
+</html>
